@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboards — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="tabs" id="lbTabs">
+          <button class="tab-btn active" data-type="players">Players</button>
+          <button class="tab-btn" data-type="teams">Teams</button>
+          <button class="tab-btn" data-type="role" data-role="IGL">IGL (In-Game Leaders)</button>
+          <button class="tab-btn" data-type="role" data-role="Fragger">Fraggers</button>
+          <button class="tab-btn" data-type="esports">Esports Teams</button>
+        </div>
+
+        <div class="card" style="overflow-x:auto;">
+          <div id="leaderboardWrap" style="padding:24px; color:var(--muted); font-size:14px;">Loading leaderboard…</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("leaderboards.html", "Leaderboards", "See how you rank against the best players and teams.");
+
+    async function loadLeaderboard(type, role) {
+      const wrap = document.getElementById("leaderboardWrap");
+      wrap.innerHTML = `<p>Loading…</p>`;
+      try {
+        const url = new URL(`${API_URL}/api/leaderboard.php`);
+        url.searchParams.set("type", type);
+        if (role) url.searchParams.set("role", role);
+
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load leaderboard");
+        const board = data.leaderboard || [];
+
+        if (board.length === 0) {
+          wrap.innerHTML = `<p>No data yet for this category.</p>`;
+          return;
+        }
+
+        if (type === "players") {
+          wrap.innerHTML = `
+            <table><thead><tr><th>#</th><th>Player</th><th>Matches</th><th>Kills</th><th>Points</th></tr></thead>
+            <tbody>${board.map((p, i) => `<tr><td class="text-primary-light" style="font-weight:600;">${i+1}</td><td style="font-weight:500;">${p.username}</td><td>${p.matches_played}</td><td>${p.total_kills}</td><td style="font-weight:600;">${p.total_points}</td></tr>`).join("")}</tbody></table>`;
+        } else if (type === "teams" || type === "esports") {
+          wrap.innerHTML = `
+            <table><thead><tr><th>#</th><th>Team</th><th>Members</th><th>Kills</th><th>Points</th></tr></thead>
+            <tbody>${board.map((t, i) => `<tr><td class="text-primary-light" style="font-weight:600;">${i+1}</td><td style="font-weight:500;">${t.team_name}</td><td>${t.member_count}</td><td>${t.total_kills}</td><td style="font-weight:600;">${t.total_points}</td></tr>`).join("")}</tbody></table>`;
+        } else if (type === "role") {
+          wrap.innerHTML = `
+            <table><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Points</th></tr></thead>
+            <tbody>${board.map((p, i) => `<tr><td class="text-primary-light" style="font-weight:600;">${i+1}</td><td style="font-weight:500;">${p.player_name}</td><td class="text-muted">${p.team_name}</td><td style="font-weight:600;">${p.total_points}</td></tr>`).join("")}</tbody></table>`;
+        }
+      } catch (err) {
+        wrap.innerHTML = `<p style="color:var(--danger);">${err.message}</p>`;
+      }
+    }
+
+    document.querySelectorAll("#lbTabs .tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => loadLeaderboard(btn.dataset.type, btn.dataset.role));
+    });
+
+    loadLeaderboard("players");
+  </script>
+</body>
+</html>

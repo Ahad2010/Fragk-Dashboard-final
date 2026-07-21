@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="tabs">
+          <button class="tab-btn active">Account</button>
+          <button class="tab-btn">Preferences</button>
+          <button class="tab-btn">Notifications</button>
+          <button class="tab-btn">Privacy</button>
+          <button class="tab-btn">Security</button>
+          <button class="tab-btn">Subscription</button>
+        </div>
+
+        <div class="grid-2">
+          <div class="card" style="padding:20px;">
+            <p class="section-title">Profile Information</p>
+
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+              <div class="avatar-circle" id="avatarPreview" style="width:64px; height:64px; font-size:18px;"></div>
+              <div>
+                <label class="btn btn-outline" style="font-size:12px; padding:6px 12px; cursor:pointer;">
+                  <span id="uploadLabel">Change Photo</span>
+                  <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
+                </label>
+                <p class="text-muted" style="font-size:10px; margin:6px 0 0;">JPG, PNG or WEBP, up to 2MB.</p>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div><label class="field-label">Full Name</label><input id="fullName" class="input" /></div>
+              <div><label class="field-label">Email Address</label><input id="email" class="input" disabled /></div>
+            </div>
+
+            <p id="msg" style="font-size:12px; display:none; margin-top:12px;"></p>
+            <button id="saveBtn" class="btn btn-primary" style="width:100%; margin-top:12px;">Save Changes</button>
+          </div>
+
+          <div class="card" style="padding:20px;">
+            <p class="section-title">Account Security</p>
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(28,39,64,0.6); padding-bottom:10px;"><span class="text-muted">Two-Factor Authentication</span><span class="text-warning">Not set up</span></div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(28,39,64,0.6); padding-bottom:10px;"><span class="text-muted">Email Verification</span><span class="text-muted">Not implemented yet</span></div>
+              <div style="display:flex; justify-content:space-between;"><span class="text-muted">Login Sessions</span><span class="text-muted">Active</span></div>
+            </div>
+            <button class="btn btn-outline text-danger" style="width:100%; margin-top:16px; border-color:rgba(248,113,113,0.5);">Delete Account</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("settings.html", "Settings", "Manage your account, preferences and security.");
+
+    const user = AUTH.getUser();
+    document.getElementById("fullName").value = user?.full_name || "";
+    document.getElementById("email").value = user?.email || "";
+
+    function renderAvatar() {
+      const u = AUTH.getUser();
+      const avatarUrl = u?.avatar_url;
+      const name = u?.full_name || "?";
+      const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+      document.getElementById("avatarPreview").innerHTML = avatarUrl
+        ? `<img src="${avatarUrl}" alt="Profile" />`
+        : initials;
+    }
+    renderAvatar();
+
+    document.getElementById("avatarInput").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const label = document.getElementById("uploadLabel");
+      label.textContent = "Uploading…";
+
+      try {
+        await AUTH.uploadAvatar(file);
+        renderAvatar();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        label.textContent = "Change Photo";
+      }
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const msg = document.getElementById("msg");
+      try {
+        await AUTH.updateProfile(document.getElementById("fullName").value);
+        msg.textContent = "Profile saved.";
+        msg.className = "text-success";
+        msg.style.display = "block";
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = "text-danger";
+        msg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>

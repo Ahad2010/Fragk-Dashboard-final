@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matches — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="tabs" id="tabs">
+          <button class="tab-btn active" data-tab="All Matches">All Matches</button>
+          <button class="tab-btn" data-tab="Ranked">Ranked</button>
+          <button class="tab-btn" data-tab="Unranked">Unranked</button>
+          <button class="tab-btn" data-tab="Custom">Custom</button>
+        </div>
+
+        <form id="customForm" class="card" style="padding:20px; display:none; flex-direction:column; gap:12px;">
+          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;">
+            <div>
+              <label class="field-label">Map</label>
+              <select id="cMap" class="input">
+                <option>Erangel</option><option>Miramar</option><option>Sanhok</option>
+                <option>Vikendi</option><option>Deston</option><option>Taego</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">Placement</label>
+              <input id="cPlacement" type="number" class="input" />
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
+            <div><label class="field-label">Player 1 Kills</label><input id="cP1" type="number" class="input" /></div>
+            <div><label class="field-label">Player 2 Kills</label><input id="cP2" type="number" class="input" /></div>
+            <div><label class="field-label">Player 3 Kills</label><input id="cP3" type="number" class="input" /></div>
+            <div><label class="field-label">Player 4 Kills</label><input id="cP4" type="number" class="input" /></div>
+          </div>
+          <div style="font-size:12px; color:var(--muted); display:flex; gap:16px;">
+            <span>Total Kills: <b id="cTotalKills" style="color:var(--foreground);">0</b></span>
+            <span>Total Points: <b id="cTotalPoints" style="color:var(--primary-light);">0</b></span>
+            <span>MVP: <b id="cMvp" style="color:var(--warning);">-</b></span>
+          </div>
+          <button type="submit" class="btn btn-primary" style="align-self:flex-start; padding:10px 24px;">Add Match</button>
+          <p id="customMsg" class="text-primary-light" style="font-size:12px; display:none;"></p>
+        </form>
+
+        <div class="card" style="overflow-x:auto;">
+          <div id="matchesTableWrap" style="padding:24px; color:var(--muted); font-size:14px;">Loading matches…</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/scoring.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("matches.html", "Matches", "View and analyze all your recent matches.");
+
+    let allMatches = [];
+    let activeTab = "All Matches";
+
+    async function loadMatches() {
+      const wrap = document.getElementById("matchesTableWrap");
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/matches.php`, {
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load matches");
+        allMatches = data.matches || [];
+      } catch (err) {
+        wrap.innerHTML = `<div style="padding:24px; color:var(--danger); font-size:14px;">Could not load matches yet — connect this page to your PHP backend's /api/matches.php (see README). (${err.message})</div>`;
+        return;
+      }
+      renderTable();
+    }
+
+    function renderTable() {
+      const wrap = document.getElementById("matchesTableWrap");
+      let filtered = allMatches;
+      if (activeTab === "Ranked") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase().includes("ranked") && !(m.mode || "").toLowerCase().includes("unranked"));
+      if (activeTab === "Unranked") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase().includes("unranked"));
+      if (activeTab === "Custom") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase() === "custom");
+
+      if (filtered.length === 0) {
+        wrap.innerHTML = `<div style="padding:24px; color:var(--muted); font-size:14px;">No matches yet. Upload a screenshot in Stats Analyzer to get started.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = `
+        <table>
+          <thead><tr><th>Map</th><th>Placement</th><th>Placement Pts</th><th>Total Kills</th><th>Total Points</th><th>MVP</th></tr></thead>
+          <tbody>
+            ${filtered.map((m) => `
+              <tr>
+                <td><div style="display:flex; align-items:center; gap:12px;"><div class="map-avatar">${(m.map || "?")[0]}</div><span style="font-weight:500;">${m.map || "Unknown"}</span></div></td>
+                <td class="text-success">${m.placement ? "#" + m.placement : "-"}</td>
+                <td>${m.placement_points ?? "-"}</td>
+                <td>${m.kills ?? "-"}</td>
+                <td class="text-primary-light" style="font-weight:600;">${m.points ?? "-"}</td>
+                <td class="text-warning">${m.mvp ?? "-"}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeTab = btn.dataset.tab;
+        document.getElementById("customForm").style.display = activeTab === "Custom" ? "flex" : "none";
+        renderTable();
+      });
+    });
+
+    function recalcCustom() {
+      const kills = [cP1, cP2, cP3, cP4].map((el) => Number(el.value) || 0);
+      const total = kills.reduce((a, b) => a + b, 0);
+      const placement = Number(cPlacement.value) || null;
+      document.getElementById("cTotalKills").textContent = total;
+      document.getElementById("cTotalPoints").textContent = getTotalPoints(placement, total);
+      document.getElementById("cMvp").textContent = total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : "-";
+    }
+    const cP1 = document.getElementById("cP1"), cP2 = document.getElementById("cP2"),
+          cP3 = document.getElementById("cP3"), cP4 = document.getElementById("cP4"),
+          cPlacement = document.getElementById("cPlacement");
+    [cP1, cP2, cP3, cP4, cPlacement].forEach((el) => el.addEventListener("input", recalcCustom));
+
+    document.getElementById("customForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const kills = [cP1, cP2, cP3, cP4].map((el) => Number(el.value) || 0);
+      const total = kills.reduce((a, b) => a + b, 0);
+      const placement = Number(cPlacement.value) || null;
+      const msg = document.getElementById("customMsg");
+
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/matches.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({
+            map: cMap.value,
+            placement,
+            placementPoints: getPlacementPoints(placement),
+            player1Kills: kills[0], player2Kills: kills[1], player3Kills: kills[2], player4Kills: kills[3],
+            totalKills: total,
+            totalPoints: getTotalPoints(placement, total),
+            mvp: total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : null,
+            mode: "Custom",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to add match");
+        msg.textContent = "Match added.";
+        msg.className = "text-primary-light";
+        msg.style.display = "block";
+        [cP1, cP2, cP3, cP4, cPlacement].forEach((el) => (el.value = ""));
+        recalcCustom();
+        loadMatches();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = "text-danger";
+        msg.style.display = "block";
+      }
+    });
+
+    loadMatches();
+  </script>
+</body>
+</html>

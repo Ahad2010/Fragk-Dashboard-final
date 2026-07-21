@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
+    <div style="width:100%; max-width:380px;">
+      <div style="text-align:center; margin-bottom:24px;">
+        <a href="dashboard.html"><img src="assets/logo.png" alt="FRAGK" style="height:32px;" /></a>
+      </div>
+
+      <div class="card" style="padding:32px;">
+        <h1 style="margin:0; font-size:24px; font-weight:700;">Create Your Account</h1>
+        <p class="text-muted" style="margin:4px 0 0; font-size:14px;">Join FRAGK and start your journey</p>
+
+        <form id="registerForm" style="margin-top:24px; display:flex; flex-direction:column; gap:16px;">
+          <div>
+            <label class="field-label" for="fullName">Full Name</label>
+            <input class="input" type="text" id="fullName" required placeholder="Enter your full name" />
+          </div>
+          <div>
+            <label class="field-label" for="email">Email Address</label>
+            <input class="input" type="email" id="email" required placeholder="Enter your email" />
+          </div>
+          <div>
+            <label class="field-label" for="password">Password</label>
+            <input class="input" type="password" id="password" required placeholder="Create a password" />
+          </div>
+          <div>
+            <label class="field-label" for="confirmPassword">Confirm Password</label>
+            <input class="input" type="password" id="confirmPassword" required placeholder="Confirm your password" />
+          </div>
+
+          <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--muted);">
+            <input type="checkbox" id="agree" checked style="margin-top:2px;" />
+            <span>I agree to the <a href="#" class="text-primary-light">Terms of Service</a> and <a href="#" class="text-primary-light">Privacy Policy</a></span>
+          </label>
+
+          <p id="errorMsg" class="text-danger" style="font-size:12px; display:none;"></p>
+
+          <button type="submit" class="btn btn-primary" id="registerBtn">SIGN UP</button>
+        </form>
+
+        <div style="display:flex; align-items:center; gap:12px; margin:16px 0;">
+          <div style="flex:1; height:1px; background:var(--surface-border);"></div>
+          <span class="text-muted" style="font-size:12px;">OR</span>
+          <div style="flex:1; height:1px; background:var(--surface-border);"></div>
+        </div>
+
+        <button class="btn btn-outline" style="width:100%;" onclick="alert('Wire this up to Supabase Google OAuth or your PHP session bridge.')">
+          Continue with Google
+        </button>
+
+        <p class="text-muted" style="text-align:center; font-size:14px; margin-top:24px;">
+          Already have an account? <a href="index.html" class="text-primary-light">Login</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("registerBtn");
+      const errorMsg = document.getElementById("errorMsg");
+      errorMsg.style.display = "none";
+
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+      if (password !== confirmPassword) {
+        errorMsg.textContent = "Passwords do not match";
+        errorMsg.style.display = "block";
+        return;
+      }
+      if (!document.getElementById("agree").checked) {
+        errorMsg.textContent = "Please agree to the Terms of Service and Privacy Policy";
+        errorMsg.style.display = "block";
+        return;
+      }
+
+      btn.textContent = "Creating account…";
+      btn.disabled = true;
+
+      try {
+        await AUTH.signUp(
+          document.getElementById("email").value,
+          password,
+          document.getElementById("fullName").value
+        );
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        errorMsg.textContent = err.message;
+        errorMsg.style.display = "block";
+        btn.textContent = "SIGN UP";
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

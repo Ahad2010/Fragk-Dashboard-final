@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Players — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="stat-grid" id="statGrid"></div>
+
+        <div class="card" style="padding:20px;">
+          <div class="section-title">
+            <span>Your Roster</span>
+            <button class="btn btn-primary" style="font-size:12px; padding:8px 16px;" onclick="toggleAddForm()">+ Add Player</button>
+          </div>
+
+          <form id="addPlayerForm" style="display:none; gap:12px; margin-bottom:16px;" class="card" onsubmit="return false;">
+            <div style="padding:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+              <div style="flex:1; min-width:160px;">
+                <label class="field-label">Player Name</label>
+                <input id="newPlayerName" class="input" placeholder="e.g. FRAGGERxYT" />
+              </div>
+              <div>
+                <label class="field-label">Role</label>
+                <select id="newPlayerRole" class="input">
+                  <option>IGL</option><option selected>Fragger</option><option>Support</option><option>Sniper</option><option>Entry Fragger</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="addPlayer()">Add</button>
+            </div>
+          </form>
+          <p id="addMsg" style="font-size:12px; display:none; margin:-8px 0 12px;"></p>
+
+          <div id="playersTableWrap" style="color:var(--muted); font-size:14px;">Loading…</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("players.html", "Players", "Analyze players, roles and team performance.");
+
+    function authHeader() {
+      const session = AUTH.getSession();
+      return { Authorization: `Bearer ${session.token}` };
+    }
+
+    let roster = [];
+    let matchStats = { matches: 0, kills: 0, points: 0 };
+
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_URL}/api/matches.php`, { headers: authHeader() });
+        const data = await res.json();
+        if (res.ok && data.matches) {
+          matchStats.matches = data.matches.length;
+          matchStats.kills = data.matches.reduce((s, m) => s + (Number(m.kills) || 0), 0);
+          matchStats.points = data.matches.reduce((s, m) => s + (Number(m.points) || 0), 0);
+        }
+      } catch {}
+      renderStats();
+    }
+
+    function renderStats() {
+      const cards = [
+        ["Total Players", roster.length],
+        ["Matches Played", matchStats.matches],
+        ["Total Kills", matchStats.kills],
+        ["Total Points", matchStats.points],
+      ];
+      document.getElementById("statGrid").innerHTML = cards.map(
+        ([label, value]) => `<div class="card stat-card"><p class="label">${label}</p><p class="value">${value}</p></div>`
+      ).join("");
+    }
+
+    async function loadRoster() {
+      const wrap = document.getElementById("playersTableWrap");
+      try {
+        const res = await fetch(`${API_URL}/api/team-players.php`, { headers: authHeader() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load roster");
+        roster = data.players || [];
+      } catch (err) {
+        wrap.innerHTML = `<p style="color:var(--danger);">${err.message}</p>`;
+        return;
+      }
+      renderStats();
+
+      if (roster.length === 0) {
+        wrap.innerHTML = `<p>No players in your roster yet. Click "+ Add Player" to build your squad. (If you haven't created a team yet, do that first on the <a href="team.html" class="text-primary-light">Team</a> page.)</p>`;
+        return;
+      }
+
+      wrap.innerHTML = `
+        <table>
+          <thead><tr><th>Player</th><th>Role</th><th></th></tr></thead>
+          <tbody>
+            ${roster.map((p) => `
+              <tr>
+                <td style="font-weight:500;">${p.name}</td>
+                <td class="text-muted">${p.role}</td>
+                <td style="text-align:right;"><button onclick="removePlayer(${p.id})" class="text-danger" style="background:none; border:none; cursor:pointer; font-size:12px;">Remove</button></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    function toggleAddForm() {
+      const form = document.getElementById("addPlayerForm");
+      form.style.display = form.style.display === "none" ? "flex" : "none";
+    }
+
+    async function addPlayer() {
+      const name = document.getElementById("newPlayerName").value.trim();
+      const role = document.getElementById("newPlayerRole").value;
+      const msg = document.getElementById("addMsg");
+      if (!name) return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/team-players.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader() },
+          body: JSON.stringify({ name, role }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to add player");
+        document.getElementById("newPlayerName").value = "";
+        document.getElementById("addPlayerForm").style.display = "none";
+        loadRoster();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = "text-danger";
+        msg.style.display = "block";
+      }
+    }
+
+    async function removePlayer(id) {
+      if (!confirm("Remove this player from your roster?")) return;
+      await fetch(`${API_URL}/api/team-players.php?id=${id}`, { method: "DELETE", headers: authHeader() });
+      loadRoster();
+    }
+
+    loadStats();
+    loadRoster();
+  </script>
+</body>
+</html>

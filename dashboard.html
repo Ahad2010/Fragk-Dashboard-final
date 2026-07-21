@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+<script src="js/chart.min.js"></script></head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="stat-grid">
+          <div class="card stat-card">
+            <p class="label">Matches Played</p>
+            <p class="value">32</p>
+            <p class="delta">↑ 12% vs last 7 days</p>
+          </div>
+          <div class="card stat-card">
+            <p class="label">Total Kills</p>
+            <p class="value">148</p>
+            <p class="delta">↑ 18% vs last 7 days</p>
+          </div>
+          <div class="card stat-card">
+            <p class="label">Win Rate</p>
+            <p class="value">28.6%</p>
+            <p class="delta">↑ 7% vs last 7 days</p>
+          </div>
+          <div class="card stat-card">
+            <p class="label">K/D Ratio</p>
+            <p class="value">4.63</p>
+            <p class="delta">↑ 15% vs last 7 days</p>
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;">
+          <div class="section-title">
+            <span>Performance Overview</span>
+            <div style="display:flex; gap:8px;">
+              <select id=``"metricSelect" class="input" style="width:auto; padding:6px 10px; font-size:12px;">
+                <option value="kills">Kills</option>
+                <option value="damage">Damage</option>
+              </select>
+              <select id="rangeSelect" class="input" style="width:auto; padding:6px 10px; font-size:12px;">
+                <option value="7">7 Days</option>
+                <option value="14">14 Days</option>
+                <option value="30">30 Days</option>
+                <option value="60">All Time</option>
+              </select>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:220px;">
+            <canvas id="perfChart"></canvas>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card" style="padding:20px;">
+            <div class="section-title">
+              <span>Recent Matches</span>
+              <a href="matches.html" class="text-primary-light" style="font-size:12px;">View All</a>
+            </div>
+            <div id="recentMatches" style="display:flex; flex-direction:column; gap:12px;"></div>
+          </div>
+
+          <div class="card" style="padding:20px;">
+            <div class="section-title">
+              <span style="display:flex; align-items:center; gap:8px;">
+                Stats Analyzer
+                <span style="background:rgba(52,211,153,0.15); color:var(--success); font-size:10px; padding:2px 8px; border-radius:99px;">98% AI Accuracy</span>
+              </span>
+              <a href="stats-analyzer.html" class="text-primary-light" style="font-size:12px;">Try Again</a>
+            </div>
+            <div id="statRows" style="display:flex; flex-direction:column; gap:12px;"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    const user = AUTH.getUser();
+    const userName = user?.full_name || user?.email?.split("@")[0] || "Player";
+    initShell("dashboard.html", `Welcome back, ${userName}`, "Here's your performance overview");
+
+    // ---- Recent matches: try real backend data first, fall back to demo ----
+    const DEMO_MATCHES = [
+      { map: "Erangel", date: "May 18, 2026 · 10:45 PM", rank: "#1", kills: 12, points: 2450 },
+      { map: "Miramar", date: "May 18, 2026 · 09:30 PM", rank: "#3", kills: 8, points: 1840 },
+      { map: "Sanhok", date: "May 17, 2026 · 11:15 PM", rank: "#2", kills: 15, points: 2670 },
+      { map: "Vikendi", date: "May 17, 2026 · 08:20 PM", rank: "#7", kills: 4, points: 1120 },
+    ];
+
+    function renderRecentMatches(matches) {
+      document.getElementById("recentMatches").innerHTML = matches.map(
+        (m) => `
+        <div style="display:flex; align-items:center; gap:12px; font-size:14px;">
+          <div class="map-avatar">${(m.map || "?")[0]}</div>
+          <div style="flex:1;">
+            <p style="margin:0; font-weight:500;">${m.map || "Unknown"}</p>
+            <p style="margin:0; font-size:12px; color:var(--muted);">${m.date}</p>
+          </div>
+          <div style="text-align:right;">
+            <p style="margin:0; font-size:12px; color:var(--success);">${m.rank}</p>
+            <p style="margin:0; font-size:12px; color:var(--muted);">${m.kills} Kills</p>
+          </div>
+          <p style="width:60px; text-align:right; font-weight:600; margin:0;">${m.points}</p>
+        </div>`
+      ).join("");
+    }
+
+    (async () => {
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/matches.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (res.ok && data.matches && data.matches.length > 0) {
+          const mapped = data.matches.slice(0, 4).map((m) => ({
+            map: m.map,
+            date: new Date(m.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+            rank: m.placement ? `#${m.placement}` : "-",
+            kills: m.kills ?? 0,
+            points: m.points ?? 0,
+          }));
+          renderRecentMatches(mapped);
+        } else {
+          renderRecentMatches(DEMO_MATCHES);
+        }
+      } catch {
+        renderRecentMatches(DEMO_MATCHES);
+      }
+    })();
+
+    // ---- Stats Analyzer simple rows (demo — swap for latest saved match once PHP backend exists) ----
+    const STAT_ROWS = [
+      { label: "Latest Kills", value: "12" },
+      { label: "Map", value: "Erangel" },
+      { label: "Accuracy", value: "98%" },
+    ];
+    document.getElementById("statRows").innerHTML = STAT_ROWS.map(
+      (s) => `
+      <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:12px 16px;">
+        <span class="text-muted" style="font-size:14px;">${s.label}</span>
+        <span class="text-primary-light" style="font-size:16px; font-weight:600;">${s.value}</span>
+      </div>`
+    ).join("");
+
+    // ---- Chart.js interactive performance chart ----
+    function generateSeries(metric, days) {
+      const base = metric === "kills" ? 16 : 1400;
+      const amplitude = metric === "kills" ? 12 : 900;
+      const referenceEnd = new Date(2026, 4, 18);
+      const labels = [];
+      const values = [];
+      for (let idx = 0; idx < days; idx++) {
+        const i = days - 1 - idx;
+        const d = new Date(referenceEnd);
+        d.setDate(d.getDate() - i);
+        const wave = Math.sin(i * 0.55) * amplitude * 0.5 + Math.cos(i * 0.28) * amplitude * 0.3;
+        labels.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+        values.push(Math.max(0, Math.round(base + wave)));
+      }
+      return { labels, values };
+    }
+
+    const ctx = document.getElementById("perfChart").getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+    gradient.addColorStop(0, "rgba(34,211,238,0.45)");
+    gradient.addColorStop(1, "rgba(34,211,238,0)");
+
+    let chart = new Chart(ctx, {
+      type: "line",
+      data: { labels: [], datasets: [{ data: [], borderColor: "#22d3ee", backgroundColor: gradient, fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: "#22d3ee" }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: "#1c2740" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
+          y: { grid: { color: "#1c2740" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
+        },
+      },
+    });
+
+    function updateChart() {
+      const metric = document.getElementById("metricSelect").value;
+      const days = Number(document.getElementById("rangeSelect").value);
+      const { labels, values } = generateSeries(metric, days);
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = values;
+      chart.update();
+    }
+    document.getElementById("metricSelect").addEventListener("change", updateChart);
+    document.getElementById("rangeSelect").addEventListener("change", updateChart);
+    updateChart();
+  </script>
+</body>
+</html>

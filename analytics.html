@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analytics — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+<script src="js/chart.min.js"></script></head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="tabs">
+          <button class="tab-btn active">Overview</button>
+          <button class="tab-btn">Combat</button>
+          <button class="tab-btn">Survival</button>
+          <button class="tab-btn">Teamplay</button>
+        </div>
+
+        <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+          <div class="card stat-card"><p class="label">Matches Played</p><p class="value">32</p><p class="delta">↑ 12% vs last 7 days</p></div>
+          <div class="card stat-card"><p class="label">Win Rate</p><p class="value">28.6%</p><p class="delta">↑ 7% vs last 7 days</p></div>
+          <div class="card stat-card"><p class="label">K/D Ratio</p><p class="value">4.63</p><p class="delta">↑ 15% vs last 7 days</p></div>
+          <div class="card stat-card"><p class="label">Avg. Damage</p><p class="value">3650</p><p class="delta">↑ 10% vs last 7 days</p></div>
+          <div class="card stat-card"><p class="label">Headshot %</p><p class="value">32.4%</p><p class="delta">↑ 7% vs last 7 days</p></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card" style="padding:20px;">
+            <p class="section-title">Performance Trend</p>
+            <div class="chart-wrap" style="height:180px;"><canvas id="trendChart"></canvas></div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <p class="section-title">Matches by Mode</p>
+            <div style="display:flex; align-items:center; gap:24px;">
+              <div style="width:110px; height:110px;"><canvas id="modeDonut"></canvas></div>
+              <div id="modeLegend" style="display:flex; flex-direction:column; gap:6px; font-size:12px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr;" id="summaryGrid"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/charts.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("analytics.html", "Analytics", "Dive into your performance and improve every match.");
+
+    const LABELS = ["May 12", "May 13", "May 14", "May 15", "May 16", "May 17", "May 18"];
+    makeLineChart("trendChart", LABELS, [
+      { label: "Kills", data: [15, 22, 17, 26, 20, 29, 24], color: "#22d3ee" },
+      { label: "Damage", data: [1200, 1900, 1500, 2200, 1800, 2600, 2100], color: "#2f6bff" },
+    ]);
+
+    const MODE_LABELS = ["TPP Squad", "TPP Duo", "FPP Squad", "Solo"];
+    const MODE_VALUES = [18, 8, 4, 2];
+    const MODE_COLORS = ["#2f6bff", "#22d3ee", "#a855f7", "#f59e0b"];
+    makeDonutChart("modeDonut", MODE_LABELS, MODE_VALUES, MODE_COLORS);
+
+    const total = MODE_VALUES.reduce((a, b) => a + b, 0);
+    document.getElementById("modeLegend").innerHTML = MODE_LABELS.map(
+      (l, i) => `<span style="display:flex; align-items:center; gap:6px; color:var(--muted);"><span style="width:6px;height:6px;border-radius:50%;background:${MODE_COLORS[i]};display:inline-block;"></span>${l} — ${MODE_VALUES[i]} (${((MODE_VALUES[i] / total) * 100).toFixed(1)}%)</span>`
+    ).join("");
+
+    const SECTIONS = [
+      { title: "Combat Summary", rows: [["Total Kills", "148", "18%"], ["Headshots", "48 (32.4%)", "7%"], ["Avg. Damage", "3650", "10%"], ["Most Kills in Match", "18", "20%"], ["Killing Spree (Max)", "12", "9%"]] },
+      { title: "Survival Summary", rows: [["Avg. Survival Time", "28m 45s", "11%"], ["Longest Survival", "46m 30s", "8%"], ["Revives", "22", "10%"], ["Heals", "56", "9%"], ["Top 10 Rate", "62.5%", "6%"]] },
+      { title: "Teamplay Summary", rows: [["Assists", "38", "12%"], ["Damage to Teammates", "0", ""], ["Rescues", "14", "17%"], ["Utility Usage", "32", "13%"], ["Communication Pings", "156", "15%"]] },
+    ];
+    document.getElementById("summaryGrid").innerHTML = SECTIONS.map(
+      (s) => `<div class="card" style="padding:20px;">
+        <p class="section-title">${s.title}</p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          ${s.rows.map(([label, value, delta]) => `
+            <div style="display:flex; justify-content:space-between; font-size:14px;">
+              <span class="text-muted">${label}</span>
+              <span style="display:flex; gap:8px; font-weight:500;">${value}${delta ? `<span class="text-success" style="font-size:12px;">↑ ${delta}</span>` : ""}</span>
+            </div>`).join("")}
+        </div>
+      </div>`
+    ).join("");
+  </script>
+</body>
+</html>

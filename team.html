@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body" id="pageBody">
+        <p class="text-muted">Loading…</p>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("team.html", "Team", "Manage your team, roles and performance.");
+
+    function authHeader() {
+      const session = AUTH.getSession();
+      return { Authorization: `Bearer ${session.token}` };
+    }
+
+    async function loadTeam() {
+      const res = await fetch(`${API_URL}/api/team.php`, { headers: authHeader() });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById("pageBody").innerHTML = `<p style="color:var(--danger);">${data.error || "Failed to load team"}</p>`;
+        return;
+      }
+      if (!data.team) {
+        renderCreateTeamForm();
+      } else {
+        renderTeamDashboard(data.team);
+      }
+    }
+
+    function renderCreateTeamForm() {
+      document.getElementById("pageBody").innerHTML = `
+        <div class="card" style="padding:24px; max-width:480px;">
+          <p class="section-title">Create Your Team</p>
+          <p class="text-muted" style="font-size:13px; margin-top:-8px;">You don't have a team yet — create one to start building your roster.</p>
+          <div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
+            <div><label class="field-label">Team Name</label><input id="teamName" class="input" placeholder="e.g. Exodus Esports" /></div>
+            <div><label class="field-label">Region</label><input id="teamRegion" class="input" placeholder="e.g. South Asia" /></div>
+            <div><label class="field-label">Game Mode</label>
+              <select id="teamMode" class="input">
+                <option>TPP Squad</option><option>FPP Squad</option><option>TPP Duo</option><option>Solo</option>
+              </select>
+            </div>
+            <p id="createMsg" class="text-danger" style="font-size:12px; display:none;"></p>
+            <button class="btn btn-primary" onclick="createTeam()">Create Team</button>
+          </div>
+        </div>`;
+    }
+
+    async function createTeam() {
+      const name = document.getElementById("teamName").value.trim();
+      const msg = document.getElementById("createMsg");
+      if (!name) {
+        msg.textContent = "Team name is required";
+        msg.style.display = "block";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/api/team.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader() },
+          body: JSON.stringify({
+            name,
+            region: document.getElementById("teamRegion").value,
+            gameMode: document.getElementById("teamMode").value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create team");
+        loadTeam();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.style.display = "block";
+      }
+    }
+
+    async function renderTeamDashboard(team) {
+      const [playersRes, matchesRes] = await Promise.all([
+        fetch(`${API_URL}/api/team-players.php`, { headers: authHeader() }),
+        fetch(`${API_URL}/api/matches.php`, { headers: authHeader() }),
+      ]);
+      const players = (await playersRes.json()).players || [];
+      const matches = (await matchesRes.json()).matches || [];
+
+      const matchesPlayed = matches.length;
+      const wins = matches.filter((m) => Number(m.placement) === 1).length;
+      const winRate = matchesPlayed ? ((wins / matchesPlayed) * 100).toFixed(1) : "0.0";
+      const totalKills = matches.reduce((s, m) => s + (Number(m.kills) || 0), 0);
+      const totalPoints = matches.reduce((s, m) => s + (Number(m.points) || 0), 0);
+
+      const roleCounts = {};
+      players.forEach((p) => (roleCounts[p.role] = (roleCounts[p.role] || 0) + 1));
+
+      document.getElementById("pageBody").innerHTML = `
+        <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="card" style="padding:20px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:48px; height:48px; border-radius:8px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--primary-light);">${team.name.slice(0,2).toUpperCase()}</div>
+              <div>
+                <p style="margin:0; font-weight:600;">${team.name}</p>
+                <p class="text-muted" style="margin:0; font-size:12px;">${team.region || "Region not set"} · ${team.game_mode || "Mode not set"}</p>
+              </div>
+            </div>
+            <p class="text-muted" style="margin-top:16px; font-size:12px;">Created: ${new Date(team.created_at).toLocaleDateString()}</p>
+          </div>
+
+          <div class="card" style="padding:20px;">
+            <p class="section-title">Team Stats</p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; text-align:center;">
+              <div><p style="margin:0; font-size:20px; font-weight:700;">${matchesPlayed}</p><p class="text-muted" style="margin:0; font-size:12px;">Matches Played</p></div>
+              <div><p style="margin:0; font-size:20px; font-weight:700;">${winRate}%</p><p class="text-muted" style="margin:0; font-size:12px;">Win Rate</p></div>
+              <div><p style="margin:0; font-size:20px; font-weight:700;">${totalKills}</p><p class="text-muted" style="margin:0; font-size:12px;">Total Kills</p></div>
+              <div><p style="margin:0; font-size:20px; font-weight:700;">${totalPoints}</p><p class="text-muted" style="margin:0; font-size:12px;">Total Points</p></div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:20px;">
+            <p class="section-title">Team Roles</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${Object.keys(roleCounts).length === 0
+                ? `<p class="text-muted" style="font-size:13px;">No players yet.</p>`
+                : Object.entries(roleCounts).map(([role, count]) => `<div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">${role}</span><span style="font-weight:500;">${count}</span></div>`).join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;">
+          <div class="section-title">
+            <span>Roster</span>
+            <a href="players.html" class="text-primary-light" style="font-size:12px;">Manage Players →</a>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            ${players.length === 0
+              ? `<p class="text-muted" style="font-size:13px;">No players added yet.</p>`
+              : players.map((p) => `<span style="border:1px solid var(--surface-border); border-radius:99px; padding:6px 14px; font-size:13px;">${p.name} <span class="text-muted">· ${p.role}</span></span>`).join("")}
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;">
+          <p class="section-title">Recent Matches</p>
+          ${matches.length === 0
+            ? `<p class="text-muted" style="font-size:13px;">No matches uploaded yet. Try the <a href="stats-analyzer.html" class="text-primary-light">Stats Analyzer</a>.</p>`
+            : matches.slice(0, 5).map((m) => `
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px; padding:8px 0; border-bottom:1px solid rgba(28,39,64,0.6);">
+                <div><p style="margin:0; font-weight:500;">${m.map || "Unknown"}</p><p style="margin:0; font-size:12px; color:var(--muted);">${new Date(m.created_at).toLocaleDateString()}</p></div>
+                <p class="text-success" style="margin:0;">${m.placement ? "#" + m.placement : "-"}</p>
+                <p class="text-muted" style="margin:0;">${m.kills ?? 0} Kills</p>
+                <p style="margin:0; font-weight:600;">${m.points ?? 0} Points</p>
+              </div>`).join("")}
+        </div>`;
+    }
+
+    loadTeam();
+  </script>
+</body>
+</html>

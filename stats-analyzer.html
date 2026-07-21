@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stats Analyzer — FRAGK</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="card" style="padding:24px;">
+          <label for="screenshot" style="display:flex; flex-direction:column; align-items:center; justify-content:center; border:2px dashed var(--surface-border); border-radius:8px; padding:40px; text-align:center; cursor:pointer;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted); margin-bottom:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v13"/></svg>
+            <p style="margin:0; font-size:14px;">Click to upload your PUBG squad match result screenshot</p>
+            <p class="text-muted" style="margin:4px 0 0; font-size:12px;">AI reads map, placement and each squad member's kills automatically.</p>
+            <input id="screenshot" type="file" accept="image/*" style="display:none;" />
+          </label>
+        </div>
+
+        <div id="resultArea" style="display:none;" class="grid-2">
+          <div class="card" style="padding:16px;">
+            <p class="section-title">Uploaded Screenshot</p>
+            <img id="previewImg" style="width:100%; border-radius:8px; border:1px solid var(--surface-border);" />
+          </div>
+
+          <div class="card" style="padding:20px;">
+            <p class="section-title">AI-Generated Report</p>
+            <p id="loadingMsg" class="text-muted" style="font-size:14px;">Analyzing screenshot with AI…</p>
+            <p id="errorMsg" class="text-danger" style="font-size:12px; display:none;"></p>
+
+            <div id="reportForm" style="display:none; flex-direction:column; gap:12px;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div><label class="field-label">Map</label><input id="fMap" class="input" /></div>
+                <div><label class="field-label">Date & Time</label><input id="fDate" type="datetime-local" class="input" /></div>
+              </div>
+              <div><label class="field-label">Placement</label><input id="fPlacement" type="number" class="input" placeholder="e.g. 1 for a chicken dinner" /></div>
+
+              <div style="border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; font-size:12px;">
+                <span class="text-muted">Placement Points</span>
+                <span id="fPlacementPoints" class="text-primary-light" style="font-weight:600;">0</span>
+              </div>
+
+              <p class="text-muted" style="font-size:12px; font-weight:500; margin:4px 0 0;">Squad Kills</p>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div><label class="field-label">Player 1 Kills</label><input id="fP1" type="number" class="input" /></div>
+                <div><label class="field-label">Player 2 Kills</label><input id="fP2" type="number" class="input" /></div>
+                <div><label class="field-label">Player 3 Kills</label><input id="fP3" type="number" class="input" /></div>
+                <div><label class="field-label">Player 4 Kills</label><input id="fP4" type="number" class="input" /></div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+                <div style="border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:10px; text-align:center;">
+                  <p style="margin:0; font-size:10px; color:var(--muted);">Total Kills</p>
+                  <p id="fTotalKills" style="margin:0; font-size:16px; font-weight:700;">0</p>
+                </div>
+                <div style="border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:10px; text-align:center;">
+                  <p style="margin:0; font-size:10px; color:var(--muted);">Total Points</p>
+                  <p id="fTotalPoints" style="margin:0; font-size:16px; font-weight:700; color:var(--primary-light);">0</p>
+                </div>
+                <div style="border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:10px; text-align:center;">
+                  <p style="margin:0; font-size:10px; color:var(--muted);">MVP</p>
+                  <p id="fMvp" style="margin:0; font-size:16px; font-weight:700; color:var(--warning);">-</p>
+                </div>
+              </div>
+
+              <button id="saveBtn" class="btn btn-primary" style="margin-top:8px;">Save Report</button>
+              <p id="savedMsg" class="text-success" style="text-align:center; font-size:12px; display:none;">Report saved to your match history ✓</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script src="js/scoring.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("stats-analyzer.html", "Stats Analyzer", "Upload a match screenshot to auto-generate your stats report.");
+
+    const fields = ["fMap", "fPlacement", "fP1", "fP2", "fP3", "fP4"].reduce((acc, id) => {
+      acc[id] = document.getElementById(id);
+      return acc;
+    }, {});
+
+    function recalc() {
+      const kills = [fields.fP1, fields.fP2, fields.fP3, fields.fP4].map((el) => Number(el.value) || 0);
+      const total = kills.reduce((a, b) => a + b, 0);
+      const placement = Number(fields.fPlacement.value) || null;
+      document.getElementById("fPlacementPoints").textContent = getPlacementPoints(placement);
+      document.getElementById("fTotalKills").textContent = total;
+      document.getElementById("fTotalPoints").textContent = getTotalPoints(placement, total);
+      document.getElementById("fMvp").textContent = total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : "-";
+    }
+    Object.values(fields).forEach((el) => el.addEventListener("input", recalc));
+
+    document.getElementById("screenshot").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      document.getElementById("resultArea").style.display = "grid";
+      document.getElementById("reportForm").style.display = "none";
+      document.getElementById("errorMsg").style.display = "none";
+      document.getElementById("savedMsg").style.display = "none";
+      document.getElementById("loadingMsg").style.display = "block";
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        document.getElementById("previewImg").src = reader.result;
+
+        try {
+          const session = AUTH.getSession();
+          const res = await fetch(`${API_URL}/api/analyze-screenshot.php`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+            body: JSON.stringify({ imageBase64: reader.result }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to analyze screenshot");
+
+          const ext = data.extracted;
+          fields.fMap.value = ext.map || "";
+          fields.fPlacement.value = ext.placement ?? "";
+          fields.fP1.value = ext.player1Kills ?? "";
+          fields.fP2.value = ext.player2Kills ?? "";
+          fields.fP3.value = ext.player3Kills ?? "";
+          fields.fP4.value = ext.player4Kills ?? "";
+          document.getElementById("fDate").value = new Date().toISOString().slice(0, 16);
+          recalc();
+          document.getElementById("reportForm").style.display = "flex";
+        } catch (err) {
+          document.getElementById("errorMsg").textContent = `${err.message} — connect this page to your PHP backend's /api/analyze-screenshot.php (see README).`;
+          document.getElementById("errorMsg").style.display = "block";
+          document.getElementById("fDate").value = new Date().toISOString().slice(0, 16);
+          document.getElementById("reportForm").style.display = "flex";
+        } finally {
+          document.getElementById("loadingMsg").style.display = "none";
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const kills = [fields.fP1, fields.fP2, fields.fP3, fields.fP4].map((el) => Number(el.value) || 0);
+      const total = kills.reduce((a, b) => a + b, 0);
+      const placement = Number(fields.fPlacement.value) || null;
+      const savedMsg = document.getElementById("savedMsg");
+      const errorMsg = document.getElementById("errorMsg");
+
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/matches.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({
+            map: fields.fMap.value || null,
+            matchDate: document.getElementById("fDate").value ? new Date(document.getElementById("fDate").value).toISOString() : null,
+            placement,
+            placementPoints: getPlacementPoints(placement),
+            player1Kills: kills[0], player2Kills: kills[1], player3Kills: kills[2], player4Kills: kills[3],
+            totalKills: total,
+            totalPoints: getTotalPoints(placement, total),
+            mvp: total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to save report");
+        savedMsg.style.display = "block";
+        errorMsg.style.display = "none";
+      } catch (err) {
+        errorMsg.textContent = `Failed to save: ${err.message}`;
+        errorMsg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
