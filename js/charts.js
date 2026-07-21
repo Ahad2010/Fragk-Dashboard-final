@@ -1,10 +1,11 @@
 function makeLineChart(canvasId, labels, datasets) {
   const ctx = document.getElementById(canvasId).getContext("2d");
-  const colors = { kills: "#22d3ee", damage: "#2f6bff", kd: "#22d3ee", winrate: "#34d399" };
+
+  const usesDualAxis = datasets.some((ds) => ds.yAxisID === "y1");
 
   const chartDatasets = datasets.map((ds) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, ds.color + "73");
+    gradient.addColorStop(0, ds.color + "59");
     gradient.addColorStop(1, ds.color + "00");
     return {
       label: ds.label,
@@ -12,11 +13,25 @@ function makeLineChart(canvasId, labels, datasets) {
       borderColor: ds.color,
       backgroundColor: gradient,
       fill: !!ds.fill,
-      tension: 0.4,
-      pointRadius: 3,
-      pointBackgroundColor: ds.color,
+      tension: 0.35,
+      cubicInterpolationMode: "monotone",
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointHoverBackgroundColor: ds.color,
+      pointHoverBorderColor: "#0b1220",
+      pointHoverBorderWidth: 2,
+      yAxisID: ds.yAxisID || "y",
     };
   });
+
+  const scales = {
+    x: { grid: { color: "rgba(28,39,64,0.5)" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
+    y: { position: "left", grid: { color: "rgba(28,39,64,0.5)" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
+  };
+  if (usesDualAxis) {
+    scales.y1 = { position: "right", grid: { display: false }, ticks: { color: "#8a92a8", font: { size: 11 } } };
+  }
 
   return new Chart(ctx, {
     type: "line",
@@ -24,11 +39,20 @@ function makeLineChart(canvasId, labels, datasets) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: datasets.length > 1, labels: { color: "#8a92a8", font: { size: 11 } } } },
-      scales: {
-        x: { grid: { color: "#1c2740" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
-        y: { grid: { color: "#1c2740" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: datasets.length > 1, labels: { color: "#8a92a8", font: { size: 11 }, usePointStyle: true, boxWidth: 8 } },
+        tooltip: {
+          backgroundColor: "#0F172A",
+          borderColor: "#1E293B",
+          borderWidth: 1,
+          titleColor: "#F8FAFC",
+          bodyColor: "#e8ecf5",
+          padding: 10,
+          cornerRadius: 8,
+        },
       },
+      scales,
     },
   });
 }
@@ -44,7 +68,7 @@ function makeDonutChart(canvasId, labels, values, colors) {
       cutout: "68%",
       plugins: {
         legend: { display: false },
-        tooltip: { backgroundColor: "#0f1830", borderColor: "#1c2740", borderWidth: 1, titleColor: "#e8ecf5", bodyColor: "#e8ecf5" },
+        tooltip: { backgroundColor: "#0F172A", borderColor: "#1E293B", borderWidth: 1, titleColor: "#F8FAFC", bodyColor: "#e8ecf5" },
       },
     },
   });

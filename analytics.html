@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Analytics — FRAGK</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css" />
 <script src="js/chart.min.js"></script></head>
 <body>
@@ -55,11 +56,10 @@
     AUTH.requireAuth();
     initShell("analytics.html", "Analytics", "Dive into your performance and improve every match.");
 
-    const LABELS = ["May 12", "May 13", "May 14", "May 15", "May 16", "May 17", "May 18"];
     makeLineChart("trendChart", LABELS, [
-      { label: "Kills", data: [15, 22, 17, 26, 20, 29, 24], color: "#22d3ee" },
-      { label: "Damage", data: [1200, 1900, 1500, 2200, 1800, 2600, 2100], color: "#2f6bff" },
-    ]);
+  { label: "Kills", data: [15, 22, 17, 26, 20, 29, 24], color: "#22d3ee", yAxisID: "y" },
+  { label: "Damage", data: [1200, 1900, 1500, 2200, 1800, 2600, 2100], color: "#2f6bff", yAxisID: "y1" },
+]);
 
     const MODE_LABELS = ["TPP Squad", "TPP Duo", "FPP Squad", "Solo"];
     const MODE_VALUES = [18, 8, 4, 2];
