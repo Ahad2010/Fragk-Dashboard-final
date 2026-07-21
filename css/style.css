@@ -342,24 +342,80 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   .chart-wrap { height: 240px; }
 }
 
-/* ================= Auth pages (Login / Signup) ================= */
+/* ================= Modal (Add Player, etc.) ================= */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-backdrop.open { display: flex; }
+.modal-box {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  padding: 24px;
+}
+.modal-box h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+.modal-box .modal-desc { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+.modal-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px;
+}
+.modal-close:hover { color: var(--foreground); }
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .auth-shell {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
+  padding: 0;
 }
 
 .auth-wrap {
+  position: relative;
   display: flex;
   width: 100%;
-  max-width: 980px;
+  min-height: 100vh;
   background: var(--surface);
   border: 1px solid var(--surface-border);
-  border-radius: 20px;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+}
+
+/* Animated glow that travels continuously around the container border */
+.auth-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--border-angle), transparent 0%, transparent 70%, var(--accent-cyan) 82%, var(--primary-light) 92%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: auth-border-spin 5s linear infinite;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes auth-border-spin {
+  to { --border-angle: 360deg; }
 }
 
 .auth-side {
@@ -367,13 +423,21 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   padding: 40px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   background:
     radial-gradient(circle at 25% 15%, rgba(37,99,235,0.22), transparent 55%),
     radial-gradient(circle at 80% 85%, rgba(59,130,246,0.12), transparent 50%),
     var(--background);
   border-right: 1px solid var(--surface-border);
 }
-.auth-side .sidebar-logo { margin-bottom: 28px; }
+.auth-side-inner {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.auth-side-inner .sidebar-logo { margin-bottom: 28px; }
 
 .auth-tagline { font-size: 24px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
 .auth-subtext { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 28px; max-width: 300px; }
@@ -408,7 +472,12 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   padding: 40px 44px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+}
+.auth-form-inner {
+  width: 100%;
+  max-width: 400px;
 }
 .auth-form-side h2 { font-size: 26px; font-weight: 700; margin: 0 0 4px; text-align: center; }
 .auth-desc { text-align: center; color: var(--muted); font-size: 13px; margin: 0 0 28px; }
@@ -467,7 +536,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 .form-error.show { display: block; }
 
 @media (max-width: 860px) {
-  .auth-wrap { flex-direction: column; max-width: 460px; }
+  .auth-wrap { flex-direction: column; }
   .auth-side { border-right: none; border-bottom: 1px solid var(--surface-border); padding: 28px; }
   .auth-illustration { min-height: 150px; margin-bottom: 16px; }
   .auth-illustration svg { max-width: 190px; }
@@ -476,8 +545,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   .auth-form-side { padding: 32px 28px; }
 }
 @media (max-width: 480px) {
-  .auth-shell { padding: 0; }
-  .auth-wrap { border-radius: 0; min-height: 100vh; box-shadow: none; }
   .auth-side { display: none; }
   .auth-form-side { padding: 40px 22px; justify-content: flex-start; }
   .auth-form-side .sidebar-logo { display: block; text-align: center; margin-bottom: 28px; }

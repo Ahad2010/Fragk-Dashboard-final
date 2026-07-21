@@ -20,20 +20,19 @@
           <button class="tab-btn">K/D Analysis</button>
           <button class="tab-btn">Rank Analysis</button>
           <button class="tab-btn">Win Analysis</button>
-          <button class="tab-btn">Damage Analysis</button>
         </div>
 
-        <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
-          <div class="card stat-card"><p class="label">Matches Played</p><p class="value">32</p><p class="delta">↑ 12% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">Total Kills</p><p class="value">148</p><p class="delta">↑ 18% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">Win Rate</p><p class="value">28.6%</p><p class="delta">↑ 7% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">K/D Ratio</p><p class="value">4.63</p><p class="delta">↑ 15% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">Total Damage</p><p class="value">45,620</p><p class="delta">↑ 20% vs last 7 days</p></div>
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+          <div class="card stat-card"><p class="label">Matches Played</p><p class="value" id="statMatches">-</p></div>
+          <div class="card stat-card"><p class="label">Total Kills</p><p class="value" id="statKills">-</p></div>
+          <div class="card stat-card"><p class="label">Win Rate</p><p class="value" id="statWinRate">-</p></div>
+          <div class="card stat-card"><p class="label">K/D Ratio</p><p class="value" id="statKD">-</p></div>
         </div>
 
         <div class="grid-2">
           <div class="card" style="padding:20px;">
             <p class="section-title">K/D Ratio Over Time</p>
+            <p class="text-muted" style="font-size:11px; margin:-8px 0 12px;">Since PUBG squad results don't report per-player deaths, a placement of #1 counts as no death and any other placement counts as one death — the same convention most PUBG stat trackers use.</p>
             <div class="chart-wrap" style="height:180px;"><canvas id="kdChart"></canvas></div>
           </div>
           <div class="card" style="padding:20px;">
@@ -45,6 +44,7 @@
     </div>
   </div>
 
+  <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/charts.js"></script>
@@ -52,20 +52,72 @@
     AUTH.requireAuth();
     initShell("performance.html", "Performance", "Track and improve your overall game performance.");
 
-    const KD_LABELS = ["May 12", "May 13", "May 14", "May 15", "May 16", "May 17", "May 18"];
-    const KD_VALUES = [3.2, 3.9, 3.4, 5.1, 4.2, 5.8, 4.63];
-    makeLineChart("kdChart", KD_LABELS, [{ label: "K/D Ratio", data: KD_VALUES, color: "#22d3ee", fill: true }]);
+    (async () => {
+      let matches = [];
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/matches.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (res.ok) matches = data.matches || [];
+      } catch (err) {
+        console.error("Failed to load matches", err);
+      }
 
-    const TOP_STATS = [
-      { label: "Most Kills", value: "15" },
-      { label: "Most Damage", value: "2450" },
-      { label: "Longest Survival", value: "28m 45s" },
-      { label: "Headshot %", value: "32.4%" },
-      { label: "Accuracy %", value: "24.6%" },
-    ];
-    document.getElementById("topStats").innerHTML = TOP_STATS.map(
-      (s) => `<div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">${s.label}</span><span style="font-weight:500;">${s.value}</span></div>`
-    ).join("");
+      // Oldest first, so the K/D trend and running totals read left-to-right chronologically.
+      matches.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      const matchesPlayed = matches.length;
+      const totalKills = matches.reduce((sum, m) => sum + (Number(m.kills) || 0), 0);
+      const wins = matches.filter((m) => Number(m.placement) === 1).length;
+      const winRate = matchesPlayed ? ((wins / matchesPlayed) * 100).toFixed(1) : "0.0";
+      const kd = (totalKills / Math.max(1, matchesPlayed - wins)).toFixed(2);
+
+      document.getElementById("statMatches").textContent = matchesPlayed;
+      document.getElementById("statKills").textContent = totalKills;
+      document.getElementById("statWinRate").textContent = `${winRate}%`;
+      document.getElementById("statKD").textContent = matchesPlayed ? kd : "-";
+
+      // Running K/D ratio, match by match.
+      let runningKills = 0;
+      let runningNonWinMatches = 0;
+      const kdLabels = [];
+      const kdValues = [];
+      matches.forEach((m) => {
+        runningKills += Number(m.kills) || 0;
+        if (Number(m.placement) === 1) {
+          // a win doesn't count as a death
+        } else {
+          runningNonWinMatches += 1;
+        }
+        kdValues.push(Number((runningKills / Math.max(1, runningNonWinMatches)).toFixed(2)));
+        kdLabels.push(new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+      });
+
+      if (matchesPlayed === 0) {
+        kdLabels.push("No matches yet");
+        kdValues.push(0);
+      }
+      makeLineChart("kdChart", kdLabels, [{ label: "K/D Ratio", data: kdValues, color: "#22d3ee", fill: true }]);
+
+      const bestPlacement = matches.reduce((best, m) => {
+        const p = Number(m.placement);
+        return p && (best === null || p < best) ? p : best;
+      }, null);
+      const mostKillsInMatch = matches.reduce((max, m) => Math.max(max, Number(m.kills) || 0), 0);
+      const totalPoints = matches.reduce((sum, m) => sum + (Number(m.points) || 0), 0);
+      const avgPoints = matchesPlayed ? (totalPoints / matchesPlayed).toFixed(1) : "0";
+
+      const TOP_STATS = [
+        { label: "Best Placement", value: bestPlacement ? `#${bestPlacement}` : "-" },
+        { label: "Most Kills (Single Match)", value: mostKillsInMatch },
+        { label: "Total Points", value: totalPoints },
+        { label: "Avg. Points / Match", value: avgPoints },
+        { label: "Wins", value: wins },
+      ];
+      document.getElementById("topStats").innerHTML = TOP_STATS.map(
+        (s) => `<div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">${s.label}</span><span style="font-weight:500;">${s.value}</span></div>`
+      ).join("");
+    })();
   </script>
 </body>
 </html>

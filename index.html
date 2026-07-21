@@ -6,6 +6,23 @@
   <title>Login — FRAGK</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css" />
+  <!-- Clerk Dashboard → API Keys → Quick Copy → select "JavaScript" → paste BOTH tags here exactly -->
+ <script
+  defer
+  crossorigin="anonymous"
+  src="https://next-ibex-65.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js"
+  type="text/javascript">
+</script>
+
+
+
+<script
+  defer
+  crossorigin="anonymous"
+  data-clerk-publishable-key="pk_test_bmV4dC1pYmV4LTY1LmNsZXJrLmFjY291bnRzLmRldiQ"
+  src="https://next-ibex-65.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+  type="text/javascript">
+</script>
 </head>
 <body>
   <div class="auth-shell">
@@ -13,6 +30,7 @@
 
       <!-- Left: branding + illustration -->
       <div class="auth-side">
+       <div class="auth-side-inner">
         <div class="sidebar-logo">
           <img src="assets/logo.png" alt="FRAGK" style="height:26px;" />
         </div>
@@ -82,10 +100,12 @@
             <div><strong>Play Smarter</strong><span>Make data-driven decisions</span></div>
           </div>
         </div>
+       </div>
       </div>
 
       <!-- Right: login form -->
       <div class="auth-form-side">
+       <div class="auth-form-inner">
         <div class="sidebar-logo" style="display:none;">
           <img src="assets/logo.png" alt="FRAGK" style="height:24px;" />
         </div>
@@ -134,6 +154,7 @@
         </button>
 
         <p class="auth-footer-text">Don't have an account? <a href="register.html">Sign up</a></p>
+       </div>
       </div>
 
     </div>
@@ -143,11 +164,17 @@
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    // eye-toggle for password field
+    // eye-toggle for password field: crossed-eye when hidden, plain eye when shown
+    const EYE_OFF = '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7c2 0 3.6.5 5 1.2M23 12s-4 7-11 7c-2 0-3.6-.5-5-1.2M3 3l18 18" stroke="currentColor" stroke-linecap="round" fill="none"/><path d="M9.9 9.9a3 3 0 104.2 4.2" stroke="currentColor" fill="none"/></svg>';
+    const EYE_ON = '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" stroke="currentColor" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" fill="none"/></svg>';
+
     document.querySelectorAll(".toggle-visibility").forEach((btn) => {
+      btn.innerHTML = EYE_OFF;
       btn.addEventListener("click", () => {
         const input = document.getElementById(btn.dataset.target);
-        input.type = input.type === "password" ? "text" : "password";
+        const willShow = input.type === "password";
+        input.type = willShow ? "text" : "password";
+        btn.innerHTML = willShow ? EYE_ON : EYE_OFF;
       });
     });
 
@@ -174,6 +201,27 @@
         errorBox.textContent = err.message;
         errorBox.classList.add("show");
       }
+    });
+
+    // ---- Google sign-in via Clerk ----
+    window.addEventListener("load", async function () {
+      try {
+        await Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+      } catch (err) {
+        console.error("Clerk failed to load", err);
+        return;
+      }
+      document.querySelector(".btn-google").addEventListener("click", async () => {
+        try {
+        await Clerk.client.signIn.authenticateWithRedirect({
+  strategy: "oauth_google",
+  redirectUrl: "/fragk-dashboard-html/oauth-callback.html",
+  redirectUrlComplete: "/fragk-dashboard-html/oauth-callback.html",
+});
+        } catch (err) {
+          console.error("Google sign-in failed", err);
+        }
+      });
     });
   </script>
 </body>

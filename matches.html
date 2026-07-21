@@ -15,32 +15,56 @@
       <div class="topbar-mount"></div>
 
       <main class="page-body">
-        <div class="tabs" id="tabs">
-          <button class="tab-btn active" data-tab="All Matches">All Matches</button>
-          <button class="tab-btn" data-tab="Ranked">Ranked</button>
-          <button class="tab-btn" data-tab="Unranked">Unranked</button>
-          <button class="tab-btn" data-tab="Custom">Custom</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div class="tabs" id="tabs">
+            <button class="tab-btn active" data-tab="All Matches">All Matches</button>
+            <button class="tab-btn" data-tab="Tournament">Tournament</button>
+            <button class="tab-btn" data-tab="Scrims">Scrims</button>
+            <button class="tab-btn" data-tab="Daily Battle">Daily Battle</button>
+          </div>
+          <button type="button" id="toggleAddForm" class="btn btn-outline" style="font-size:13px;">+ Add Match</button>
         </div>
 
         <form id="customForm" class="card" style="padding:20px; display:none; flex-direction:column; gap:12px;">
-          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
             <div>
               <label class="field-label">Map</label>
               <select id="cMap" class="input">
-                <option>Erangel</option><option>Miramar</option><option>Sanhok</option>
-                <option>Vikendi</option><option>Deston</option><option>Taego</option>
+                <option>Erangel</option><option>Miramar</option><option>Rondo</option>
               </select>
             </div>
             <div>
               <label class="field-label">Placement</label>
               <input id="cPlacement" type="number" class="input" />
             </div>
+            <div>
+              <label class="field-label">Mode</label>
+              <select id="cMode" class="input">
+                <option>Tournament</option><option>Scrims</option><option>Daily Battle</option>
+              </select>
+            </div>
           </div>
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
-            <div><label class="field-label">Player 1 Kills</label><input id="cP1" type="number" class="input" /></div>
-            <div><label class="field-label">Player 2 Kills</label><input id="cP2" type="number" class="input" /></div>
-            <div><label class="field-label">Player 3 Kills</label><input id="cP3" type="number" class="input" /></div>
-            <div><label class="field-label">Player 4 Kills</label><input id="cP4" type="number" class="input" /></div>
+            <div>
+              <label class="field-label">Player 1</label>
+              <input id="cP1Name" type="text" class="input" placeholder="Name" style="margin-bottom:6px;" />
+              <input id="cP1" type="number" class="input" placeholder="Kills" />
+            </div>
+            <div>
+              <label class="field-label">Player 2</label>
+              <input id="cP2Name" type="text" class="input" placeholder="Name" style="margin-bottom:6px;" />
+              <input id="cP2" type="number" class="input" placeholder="Kills" />
+            </div>
+            <div>
+              <label class="field-label">Player 3</label>
+              <input id="cP3Name" type="text" class="input" placeholder="Name" style="margin-bottom:6px;" />
+              <input id="cP3" type="number" class="input" placeholder="Kills" />
+            </div>
+            <div>
+              <label class="field-label">Player 4</label>
+              <input id="cP4Name" type="text" class="input" placeholder="Name" style="margin-bottom:6px;" />
+              <input id="cP4" type="number" class="input" placeholder="Kills" />
+            </div>
           </div>
           <div style="font-size:12px; color:var(--muted); display:flex; gap:16px;">
             <span>Total Kills: <b id="cTotalKills" style="color:var(--foreground);">0</b></span>
@@ -66,6 +90,29 @@
     AUTH.requireAuth();
     initShell("matches.html", "Matches", "View and analyze all your recent matches.");
 
+    // Only these 3 maps are currently supported end-to-end (screenshot analysis
+    // rejects anything else — see api/analyze-screenshot.php). Ahad: drop the
+    // actual thumbnail files in here with these exact names and they'll show
+    // automatically; until then it falls back to the letter avatar.
+    const MAP_IMAGES = {
+      erangel: "assets/erangel.jpeg",
+      miramar: "assets/miramar.jpeg",
+      rondo: "assets/rondo.jpeg",
+    };
+
+    function mapAvatarHtml(mapName) {
+      const key = (mapName || "").toLowerCase();
+      const letter = (mapName || "?")[0];
+      const img = MAP_IMAGES[key];
+      if (img) {
+        return `<div class="map-avatar" style="padding:0; overflow:hidden;">
+          <img src="${img}" alt="${mapName}" style="width:100%;height:100%;object-fit:cover;"
+               onerror="this.closest('.map-avatar').style.padding='';this.closest('.map-avatar').textContent='${letter}';" />
+        </div>`;
+      }
+      return `<div class="map-avatar">${letter}</div>`;
+    }
+
     let allMatches = [];
     let activeTab = "All Matches";
 
@@ -89,9 +136,9 @@
     function renderTable() {
       const wrap = document.getElementById("matchesTableWrap");
       let filtered = allMatches;
-      if (activeTab === "Ranked") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase().includes("ranked") && !(m.mode || "").toLowerCase().includes("unranked"));
-      if (activeTab === "Unranked") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase().includes("unranked"));
-      if (activeTab === "Custom") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase() === "custom");
+      if (activeTab === "Tournament") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase() === "tournament");
+      if (activeTab === "Scrims") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase() === "scrims");
+      if (activeTab === "Daily Battle") filtered = allMatches.filter((m) => (m.mode || "").toLowerCase() === "daily battle");
 
       if (filtered.length === 0) {
         wrap.innerHTML = `<div style="padding:24px; color:var(--muted); font-size:14px;">No matches yet. Upload a screenshot in Stats Analyzer to get started.</div>`;
@@ -104,7 +151,7 @@
           <tbody>
             ${filtered.map((m) => `
               <tr>
-                <td><div style="display:flex; align-items:center; gap:12px;"><div class="map-avatar">${(m.map || "?")[0]}</div><span style="font-weight:500;">${m.map || "Unknown"}</span></div></td>
+                <td><div style="display:flex; align-items:center; gap:12px;">${mapAvatarHtml(m.map)}<span style="font-weight:500;">${m.map || "Unknown"}</span></div></td>
                 <td class="text-success">${m.placement ? "#" + m.placement : "-"}</td>
                 <td>${m.placement_points ?? "-"}</td>
                 <td>${m.kills ?? "-"}</td>
@@ -120,30 +167,39 @@
         document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         activeTab = btn.dataset.tab;
-        document.getElementById("customForm").style.display = activeTab === "Custom" ? "flex" : "none";
         renderTable();
       });
     });
 
+    document.getElementById("toggleAddForm").addEventListener("click", () => {
+      const form = document.getElementById("customForm");
+      form.style.display = form.style.display === "none" ? "flex" : "none";
+    });
+
     function recalcCustom() {
       const kills = [cP1, cP2, cP3, cP4].map((el) => Number(el.value) || 0);
+      const names = [cP1Name, cP2Name, cP3Name, cP4Name].map((el, i) => el.value.trim() || `Player ${i + 1}`);
       const total = kills.reduce((a, b) => a + b, 0);
       const placement = Number(cPlacement.value) || null;
       document.getElementById("cTotalKills").textContent = total;
       document.getElementById("cTotalPoints").textContent = getTotalPoints(placement, total);
-      document.getElementById("cMvp").textContent = total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : "-";
+      document.getElementById("cMvp").textContent = total > 0 ? names[kills.indexOf(Math.max(...kills))] : "-";
     }
     const cP1 = document.getElementById("cP1"), cP2 = document.getElementById("cP2"),
           cP3 = document.getElementById("cP3"), cP4 = document.getElementById("cP4"),
+          cP1Name = document.getElementById("cP1Name"), cP2Name = document.getElementById("cP2Name"),
+          cP3Name = document.getElementById("cP3Name"), cP4Name = document.getElementById("cP4Name"),
           cPlacement = document.getElementById("cPlacement");
-    [cP1, cP2, cP3, cP4, cPlacement].forEach((el) => el.addEventListener("input", recalcCustom));
+    [cP1, cP2, cP3, cP4, cP1Name, cP2Name, cP3Name, cP4Name, cPlacement].forEach((el) => el.addEventListener("input", recalcCustom));
 
     document.getElementById("customForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const kills = [cP1, cP2, cP3, cP4].map((el) => Number(el.value) || 0);
+      const names = [cP1Name, cP2Name, cP3Name, cP4Name].map((el) => el.value.trim() || null);
       const total = kills.reduce((a, b) => a + b, 0);
       const placement = Number(cPlacement.value) || null;
       const msg = document.getElementById("customMsg");
+      const mvpIndex = total > 0 ? kills.indexOf(Math.max(...kills)) : -1;
 
       try {
         const session = AUTH.getSession();
@@ -154,11 +210,12 @@
             map: cMap.value,
             placement,
             placementPoints: getPlacementPoints(placement),
+            player1Name: names[0], player2Name: names[1], player3Name: names[2], player4Name: names[3],
             player1Kills: kills[0], player2Kills: kills[1], player3Kills: kills[2], player4Kills: kills[3],
             totalKills: total,
             totalPoints: getTotalPoints(placement, total),
-            mvp: total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : null,
-            mode: "Custom",
+            mvp: mvpIndex >= 0 ? (names[mvpIndex] || `Player ${mvpIndex + 1}`) : null,
+            mode: cMode.value,
           }),
         });
         const data = await res.json();
@@ -166,7 +223,7 @@
         msg.textContent = "Match added.";
         msg.className = "text-primary-light";
         msg.style.display = "block";
-        [cP1, cP2, cP3, cP4, cPlacement].forEach((el) => (el.value = ""));
+        [cP1, cP2, cP3, cP4, cP1Name, cP2Name, cP3Name, cP4Name, cPlacement].forEach((el) => (el.value = ""));
         recalcCustom();
         loadMatches();
       } catch (err) {
@@ -175,6 +232,7 @@
         msg.style.display = "block";
       }
     });
+    const cMode = document.getElementById("cMode");
 
     loadMatches();
   </script>

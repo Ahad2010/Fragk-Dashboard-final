@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signing you in — FRAGK</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Clerk Dashboard → API Keys → Quick Copy → select "JavaScript" → paste BOTH tags here exactly -->
+<script
+  defer
+  crossorigin="anonymous"
+  src="https://next-ibex-65.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js"
+  type="text/javascript">
+</script>
+
+
+
+<script
+  defer
+  crossorigin="anonymous"
+  data-clerk-publishable-key="pk_test_bmV4dC1pYmV4LTY1LmNsZXJrLmFjY291bnRzLmRldiQ"
+  src="https://next-ibex-65.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+  type="text/javascript">
+</script>
+</head>
+<body>
+  <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px;">
+    <img src="assets/logo.png" alt="FRAGK" style="height:28px; opacity:0.9;" />
+    <p id="statusText" class="text-muted" style="font-size:13px;">Signing you in…</p>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    window.addEventListener("load", async function () {
+      const statusText = document.getElementById("statusText");
+      try {
+        await Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+        await Clerk.handleRedirectCallback();
+
+        const session = Clerk.session;
+        if (!session) throw new Error("No Clerk session found");
+
+        const token = await session.getToken();
+
+        const res = await fetch(`${API_URL}/api/oauth-login.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: session.id, token }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Google sign-in failed");
+
+        localStorage.setItem("fragk_session", JSON.stringify({ token: data.token, user: data.user }));
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        console.error(err);
+        statusText.textContent = "Google sign-in didn't work. Redirecting back to login…";
+        setTimeout(() => (window.location.href = "index.html"), 2200);
+      }
+    });
+  </script>
+</body>
+</html>

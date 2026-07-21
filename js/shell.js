@@ -97,7 +97,10 @@ function renderTopbar(title, subtitle) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v13"/></svg>
           Upload Screenshot
         </button>
-        <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;">This Week</button>
+        <button class="btn btn-primary" onclick="openAddPlayerModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+          Add Player
+        </button>
         <div class="dropdown-wrap">
           <button class="icon-btn" onclick="toggleDropdown('notif-dd-desktop')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
@@ -153,7 +156,81 @@ async function handleLogout() {
   window.location.href = "index.html";
 }
 
+// ---------------- Add Player modal (global — available on every page) ----------------
+function renderAddPlayerModal() {
+  return `
+  <div class="modal-backdrop" id="addPlayerBackdrop">
+    <div class="card modal-box">
+      <button type="button" class="modal-close" onclick="closeAddPlayerModal()">&times;</button>
+      <h3>Add Player</h3>
+      <p class="modal-desc">Add a player to your team roster.</p>
+      <div id="addPlayerError" class="form-error"></div>
+      <form id="addPlayerForm">
+        <div class="auth-field">
+          <label class="field-label" for="newPlayerName">Player Name</label>
+          <input class="input" id="newPlayerName" type="text" placeholder="Enter player name" required />
+        </div>
+        <div class="auth-field">
+          <label class="field-label" for="newPlayerRole">Role</label>
+          <select class="input" id="newPlayerRole">
+            <option>IGL</option>
+            <option>Fragger</option>
+            <option>Support</option>
+            <option>Sniper</option>
+            <option>Entry Fragger</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Add Player</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+function openAddPlayerModal() {
+  document.getElementById("addPlayerError")?.classList.remove("show");
+  document.getElementById("addPlayerForm")?.reset();
+  document.getElementById("addPlayerBackdrop")?.classList.add("open");
+}
+
+function closeAddPlayerModal() {
+  document.getElementById("addPlayerBackdrop")?.classList.remove("open");
+}
+
+async function handleAddPlayerSubmit(e) {
+  e.preventDefault();
+  const errorBox = document.getElementById("addPlayerError");
+  errorBox.classList.remove("show");
+
+  const name = document.getElementById("newPlayerName").value.trim();
+  const role = document.getElementById("newPlayerRole").value;
+
+  try {
+    const session = AUTH.getSession();
+    const res = await fetch(`${API_URL}/api/team-players.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+      body: JSON.stringify({ name, role }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not add player.");
+
+    closeAddPlayerModal();
+    document.getElementById("addPlayerForm").reset();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add("show");
+  }
+}
+
 function initShell(activePage, title, subtitle) {
   document.querySelector(".sidebar").innerHTML = renderSidebar(activePage);
   document.querySelector(".topbar-mount").innerHTML = renderTopbar(title, subtitle);
+
+  if (!document.getElementById("addPlayerBackdrop")) {
+    document.body.insertAdjacentHTML("beforeend", renderAddPlayerModal());
+    document.getElementById("addPlayerBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "addPlayerBackdrop") closeAddPlayerModal();
+    });
+    document.getElementById("addPlayerForm").addEventListener("submit", handleAddPlayerSubmit);
+  }
 }

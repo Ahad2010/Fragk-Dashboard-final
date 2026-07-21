@@ -15,40 +15,39 @@
       <div class="topbar-mount"></div>
 
       <main class="page-body">
-        <div class="tabs">
-          <button class="tab-btn active">Overview</button>
-          <button class="tab-btn">Combat</button>
-          <button class="tab-btn">Survival</button>
-          <button class="tab-btn">Teamplay</button>
+        <div class="tabs" id="analyticsTabs">
+          <button class="tab-btn active" data-tab="Overview">Overview</button>
+          <button class="tab-btn" data-tab="Teamplay">Teamplay</button>
         </div>
 
-        <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
-          <div class="card stat-card"><p class="label">Matches Played</p><p class="value">32</p><p class="delta">↑ 12% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">Win Rate</p><p class="value">28.6%</p><p class="delta">↑ 7% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">K/D Ratio</p><p class="value">4.63</p><p class="delta">↑ 15% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">Avg. Damage</p><p class="value">3650</p><p class="delta">↑ 10% vs last 7 days</p></div>
-          <div class="card stat-card"><p class="label">Headshot %</p><p class="value">32.4%</p><p class="delta">↑ 7% vs last 7 days</p></div>
-        </div>
-
-        <div class="grid-2">
-          <div class="card" style="padding:20px;">
-            <p class="section-title">Performance Trend</p>
-            <div class="chart-wrap" style="height:180px;"><canvas id="trendChart"></canvas></div>
+        <div id="overviewSection">
+          <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+            <div class="card stat-card"><p class="label">Matches Played</p><p class="value" id="statMatches">-</p></div>
+            <div class="card stat-card"><p class="label">Win Rate</p><p class="value" id="statWinRate">-</p></div>
+            <div class="card stat-card"><p class="label">K/D Ratio</p><p class="value" id="statKD">-</p></div>
           </div>
-          <div class="card" style="padding:20px;">
-            <p class="section-title">Matches by Mode</p>
-            <div style="display:flex; align-items:center; gap:24px;">
-              <div style="width:110px; height:110px;"><canvas id="modeDonut"></canvas></div>
-              <div id="modeLegend" style="display:flex; flex-direction:column; gap:6px; font-size:12px;"></div>
+
+          <div class="grid-2" style="margin-top:24px;">
+            <div class="card" style="padding:20px;">
+              <p class="section-title">Kills Trend</p>
+              <div class="chart-wrap" style="height:180px;"><canvas id="trendChart"></canvas></div>
+            </div>
+            <div class="card" style="padding:20px;">
+              <p class="section-title">Matches by Mode</p>
+              <div style="display:flex; align-items:center; gap:24px;">
+                <div style="width:110px; height:110px;"><canvas id="modeDonut"></canvas></div>
+                <div id="modeLegend" style="display:flex; flex-direction:column; gap:6px; font-size:12px;"></div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr;" id="summaryGrid"></div>
+        <div id="teamplaySection" style="display:none; max-width:400px;"></div>
       </main>
     </div>
   </div>
 
+  <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/shell.js"></script>
   <script src="js/charts.js"></script>
@@ -56,38 +55,69 @@
     AUTH.requireAuth();
     initShell("analytics.html", "Analytics", "Dive into your performance and improve every match.");
 
-    makeLineChart("trendChart", LABELS, [
-  { label: "Kills", data: [15, 22, 17, 26, 20, 29, 24], color: "#22d3ee", yAxisID: "y" },
-  { label: "Damage", data: [1200, 1900, 1500, 2200, 1800, 2600, 2100], color: "#2f6bff", yAxisID: "y1" },
-]);
+    (async () => {
+      let matches = [];
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/matches.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (res.ok) matches = data.matches || [];
+      } catch (err) {
+        console.error("Failed to load matches", err);
+      }
 
-    const MODE_LABELS = ["TPP Squad", "TPP Duo", "FPP Squad", "Solo"];
-    const MODE_VALUES = [18, 8, 4, 2];
-    const MODE_COLORS = ["#2f6bff", "#22d3ee", "#a855f7", "#f59e0b"];
-    makeDonutChart("modeDonut", MODE_LABELS, MODE_VALUES, MODE_COLORS);
+      matches.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-    const total = MODE_VALUES.reduce((a, b) => a + b, 0);
-    document.getElementById("modeLegend").innerHTML = MODE_LABELS.map(
-      (l, i) => `<span style="display:flex; align-items:center; gap:6px; color:var(--muted);"><span style="width:6px;height:6px;border-radius:50%;background:${MODE_COLORS[i]};display:inline-block;"></span>${l} — ${MODE_VALUES[i]} (${((MODE_VALUES[i] / total) * 100).toFixed(1)}%)</span>`
-    ).join("");
+      const matchesPlayed = matches.length;
+      const totalKills = matches.reduce((sum, m) => sum + (Number(m.kills) || 0), 0);
+      const wins = matches.filter((m) => Number(m.placement) === 1).length;
+      const winRate = matchesPlayed ? ((wins / matchesPlayed) * 100).toFixed(1) : "0.0";
+      const kd = (totalKills / Math.max(1, matchesPlayed - wins)).toFixed(2);
 
-    const SECTIONS = [
-      { title: "Combat Summary", rows: [["Total Kills", "148", "18%"], ["Headshots", "48 (32.4%)", "7%"], ["Avg. Damage", "3650", "10%"], ["Most Kills in Match", "18", "20%"], ["Killing Spree (Max)", "12", "9%"]] },
-      { title: "Survival Summary", rows: [["Avg. Survival Time", "28m 45s", "11%"], ["Longest Survival", "46m 30s", "8%"], ["Revives", "22", "10%"], ["Heals", "56", "9%"], ["Top 10 Rate", "62.5%", "6%"]] },
-      { title: "Teamplay Summary", rows: [["Assists", "38", "12%"], ["Damage to Teammates", "0", ""], ["Rescues", "14", "17%"], ["Utility Usage", "32", "13%"], ["Communication Pings", "156", "15%"]] },
-    ];
-    document.getElementById("summaryGrid").innerHTML = SECTIONS.map(
-      (s) => `<div class="card" style="padding:20px;">
-        <p class="section-title">${s.title}</p>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          ${s.rows.map(([label, value, delta]) => `
-            <div style="display:flex; justify-content:space-between; font-size:14px;">
-              <span class="text-muted">${label}</span>
-              <span style="display:flex; gap:8px; font-weight:500;">${value}${delta ? `<span class="text-success" style="font-size:12px;">↑ ${delta}</span>` : ""}</span>
-            </div>`).join("")}
-        </div>
-      </div>`
-    ).join("");
+      document.getElementById("statMatches").textContent = matchesPlayed;
+      document.getElementById("statWinRate").textContent = `${winRate}%`;
+      document.getElementById("statKD").textContent = matchesPlayed ? kd : "-";
+
+      const trendLabels = matches.map((m) => new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+      const trendKills = matches.map((m) => Number(m.kills) || 0);
+      makeLineChart("trendChart", trendLabels.length ? trendLabels : ["No matches yet"], [
+        { label: "Kills", data: trendKills.length ? trendKills : [0], color: "#22d3ee", fill: true },
+      ]);
+
+      const MODE_LABELS = ["Tournament", "Scrims", "Daily Battle"];
+      const MODE_VALUES = MODE_LABELS.map(
+        (label) => matches.filter((m) => (m.mode || "").toLowerCase() === label.toLowerCase()).length
+      );
+      const MODE_COLORS = ["#2563EB", "#22d3ee", "#a855f7"];
+      makeDonutChart("modeDonut", MODE_LABELS, MODE_VALUES, MODE_COLORS);
+
+      const modeTotal = MODE_VALUES.reduce((a, b) => a + b, 0) || 1;
+      document.getElementById("modeLegend").innerHTML = MODE_LABELS.map(
+        (l, i) => `<span style="display:flex; align-items:center; gap:6px; color:var(--muted);"><span style="width:6px;height:6px;border-radius:50%;background:${MODE_COLORS[i]};display:inline-block;"></span>${l} — ${MODE_VALUES[i]} (${((MODE_VALUES[i] / modeTotal) * 100).toFixed(1)}%)</span>`
+      ).join("");
+
+      // Teamplay is the only summary section left — Combat/Survival stats (headshots,
+      // damage, survival time) aren't part of the esports scoring model, so they're gone.
+      document.getElementById("teamplaySection").innerHTML = `
+        <div class="card" style="padding:20px;">
+          <p class="section-title">Teamplay Summary</p>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">Matches Played</span><span style="font-weight:500;">${matchesPlayed}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">Total Kills</span><span style="font-weight:500;">${totalKills}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">Wins</span><span style="font-weight:500;">${wins}</span></div>
+          </div>
+        </div>`;
+    })();
+
+    document.querySelectorAll("#analyticsTabs .tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#analyticsTabs .tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        document.getElementById("overviewSection").style.display = tab === "Overview" ? "block" : "none";
+        document.getElementById("teamplaySection").style.display = tab === "Teamplay" ? "block" : "none";
+      });
+    });
   </script>
 </body>
 </html>

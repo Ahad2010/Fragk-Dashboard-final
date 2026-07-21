@@ -19,7 +19,7 @@
           <label for="screenshot" style="display:flex; flex-direction:column; align-items:center; justify-content:center; border:2px dashed var(--surface-border); border-radius:8px; padding:40px; text-align:center; cursor:pointer;">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted); margin-bottom:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v13"/></svg>
             <p style="margin:0; font-size:14px;">Click to upload your PUBG squad match result screenshot</p>
-            <p class="text-muted" style="margin:4px 0 0; font-size:12px;">AI reads map, placement and each squad member's kills automatically.</p>
+            <p class="text-muted" style="margin:4px 0 0; font-size:12px;">AI reads the map, placement, and each squad member's name and kills automatically. Erangel, Miramar, and Rondo screenshots only.</p>
             <input id="screenshot" type="file" accept="image/*" style="display:none;" />
           </label>
         </div>
@@ -37,22 +37,37 @@
 
             <div id="reportForm" style="display:none; flex-direction:column; gap:12px;">
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <div><label class="field-label">Map</label><input id="fMap" class="input" /></div>
+                <div><label class="field-label">Map</label><input id="fMap" class="input" readonly style="cursor:not-allowed; opacity:0.8;" /></div>
                 <div><label class="field-label">Date & Time</label><input id="fDate" type="datetime-local" class="input" /></div>
               </div>
-              <div><label class="field-label">Placement</label><input id="fPlacement" type="number" class="input" placeholder="e.g. 1 for a chicken dinner" /></div>
+              <div><label class="field-label">Placement</label><input id="fPlacement" type="number" class="input" placeholder="e.g. 1 for a chicken dinner" readonly style="cursor:not-allowed; opacity:0.8;" /></div>
 
               <div style="border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; font-size:12px;">
                 <span class="text-muted">Placement Points</span>
                 <span id="fPlacementPoints" class="text-primary-light" style="font-weight:600;">0</span>
               </div>
 
-              <p class="text-muted" style="font-size:12px; font-weight:500; margin:4px 0 0;">Squad Kills</p>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <div><label class="field-label">Player 1 Kills</label><input id="fP1" type="number" class="input" /></div>
-                <div><label class="field-label">Player 2 Kills</label><input id="fP2" type="number" class="input" /></div>
-                <div><label class="field-label">Player 3 Kills</label><input id="fP3" type="number" class="input" /></div>
-                <div><label class="field-label">Player 4 Kills</label><input id="fP4" type="number" class="input" /></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin:4px 0 0;">
+                <p class="text-muted" style="font-size:12px; font-weight:500; margin:0;">Squad — names editable, kills locked from screenshot</p>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:grid; grid-template-columns:1fr 90px; gap:10px; align-items:end;">
+                  <div><label class="field-label">Player 1 Name</label><input id="fP1Name" type="text" class="input" placeholder="Player 1" /></div>
+                  <div><label class="field-label">Kills</label><input id="fP1" type="number" class="input" readonly style="cursor:not-allowed; opacity:0.8; text-align:center;" /></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 90px; gap:10px; align-items:end;">
+                  <div><label class="field-label">Player 2 Name</label><input id="fP2Name" type="text" class="input" placeholder="Player 2" /></div>
+                  <div><label class="field-label">Kills</label><input id="fP2" type="number" class="input" readonly style="cursor:not-allowed; opacity:0.8; text-align:center;" /></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 90px; gap:10px; align-items:end;">
+                  <div><label class="field-label">Player 3 Name</label><input id="fP3Name" type="text" class="input" placeholder="Player 3" /></div>
+                  <div><label class="field-label">Kills</label><input id="fP3" type="number" class="input" readonly style="cursor:not-allowed; opacity:0.8; text-align:center;" /></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 90px; gap:10px; align-items:end;">
+                  <div><label class="field-label">Player 4 Name</label><input id="fP4Name" type="text" class="input" placeholder="Player 4" /></div>
+                  <div><label class="field-label">Kills</label><input id="fP4" type="number" class="input" readonly style="cursor:not-allowed; opacity:0.8; text-align:center;" /></div>
+                </div>
               </div>
 
               <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
@@ -87,21 +102,24 @@
     AUTH.requireAuth();
     initShell("stats-analyzer.html", "Stats Analyzer", "Upload a match screenshot to auto-generate your stats report.");
 
-    const fields = ["fMap", "fPlacement", "fP1", "fP2", "fP3", "fP4"].reduce((acc, id) => {
+    const fields = ["fMap", "fPlacement", "fP1", "fP2", "fP3", "fP4", "fP1Name", "fP2Name", "fP3Name", "fP4Name"].reduce((acc, id) => {
       acc[id] = document.getElementById(id);
       return acc;
     }, {});
 
     function recalc() {
       const kills = [fields.fP1, fields.fP2, fields.fP3, fields.fP4].map((el) => Number(el.value) || 0);
+      const names = [fields.fP1Name, fields.fP2Name, fields.fP3Name, fields.fP4Name].map((el, i) => el.value.trim() || `Player ${i + 1}`);
       const total = kills.reduce((a, b) => a + b, 0);
       const placement = Number(fields.fPlacement.value) || null;
       document.getElementById("fPlacementPoints").textContent = getPlacementPoints(placement);
       document.getElementById("fTotalKills").textContent = total;
       document.getElementById("fTotalPoints").textContent = getTotalPoints(placement, total);
-      document.getElementById("fMvp").textContent = total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : "-";
+      document.getElementById("fMvp").textContent = total > 0 ? names[kills.indexOf(Math.max(...kills))] : "-";
     }
-    Object.values(fields).forEach((el) => el.addEventListener("input", recalc));
+    // Only the name fields are user-editable and trigger a recalc as you type —
+    // kills/map/placement are read-only, locked to whatever the AI extracted.
+    [fields.fP1Name, fields.fP2Name, fields.fP3Name, fields.fP4Name].forEach((el) => el.addEventListener("input", recalc));
 
     document.getElementById("screenshot").addEventListener("change", async (e) => {
       const file = e.target.files[0];
@@ -125,11 +143,19 @@
             body: JSON.stringify({ imageBase64: reader.result }),
           });
           const data = await res.json();
+
+          // analyze-screenshot.php returns 422 for unsupported maps — in that case
+          // we deliberately do NOT show the report form, so nothing can be saved
+          // from a rejected screenshot.
           if (!res.ok) throw new Error(data.error || "Failed to analyze screenshot");
 
           const ext = data.extracted;
           fields.fMap.value = ext.map || "";
           fields.fPlacement.value = ext.placement ?? "";
+          fields.fP1Name.value = ext.player1Name || "";
+          fields.fP2Name.value = ext.player2Name || "";
+          fields.fP3Name.value = ext.player3Name || "";
+          fields.fP4Name.value = ext.player4Name || "";
           fields.fP1.value = ext.player1Kills ?? "";
           fields.fP2.value = ext.player2Kills ?? "";
           fields.fP3.value = ext.player3Kills ?? "";
@@ -138,10 +164,9 @@
           recalc();
           document.getElementById("reportForm").style.display = "flex";
         } catch (err) {
-          document.getElementById("errorMsg").textContent = `${err.message} — connect this page to your PHP backend's /api/analyze-screenshot.php (see README).`;
+          document.getElementById("errorMsg").textContent = err.message;
           document.getElementById("errorMsg").style.display = "block";
-          document.getElementById("fDate").value = new Date().toISOString().slice(0, 16);
-          document.getElementById("reportForm").style.display = "flex";
+          // Report form stays hidden — a rejected/failed screenshot can't be saved.
         } finally {
           document.getElementById("loadingMsg").style.display = "none";
         }
@@ -151,10 +176,12 @@
 
     document.getElementById("saveBtn").addEventListener("click", async () => {
       const kills = [fields.fP1, fields.fP2, fields.fP3, fields.fP4].map((el) => Number(el.value) || 0);
+      const names = [fields.fP1Name, fields.fP2Name, fields.fP3Name, fields.fP4Name].map((el) => el.value.trim() || null);
       const total = kills.reduce((a, b) => a + b, 0);
       const placement = Number(fields.fPlacement.value) || null;
       const savedMsg = document.getElementById("savedMsg");
       const errorMsg = document.getElementById("errorMsg");
+      const mvpIndex = total > 0 ? kills.indexOf(Math.max(...kills)) : -1;
 
       try {
         const session = AUTH.getSession();
@@ -166,10 +193,11 @@
             matchDate: document.getElementById("fDate").value ? new Date(document.getElementById("fDate").value).toISOString() : null,
             placement,
             placementPoints: getPlacementPoints(placement),
+            player1Name: names[0], player2Name: names[1], player3Name: names[2], player4Name: names[3],
             player1Kills: kills[0], player2Kills: kills[1], player3Kills: kills[2], player4Kills: kills[3],
             totalKills: total,
             totalPoints: getTotalPoints(placement, total),
-            mvp: total > 0 ? `Player ${kills.indexOf(Math.max(...kills)) + 1}` : null,
+            mvp: mvpIndex >= 0 ? (names[mvpIndex] || `Player ${mvpIndex + 1}`) : null,
           }),
         });
         const data = await res.json();

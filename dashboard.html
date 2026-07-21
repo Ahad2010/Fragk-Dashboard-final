@@ -9,6 +9,7 @@
 <script src="js/chart.min.js"></script></head>
 <body>
   <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+
   <div class="app-shell">
     <aside class="sidebar"></aside>
     <div class="main-content">
@@ -43,7 +44,7 @@
             <span>Performance Overview</span>
             <div style="display:flex; gap:8px;">
 <select id="metricSelect" class="input" style="width:auto; padding:6px 10px; font-size:12px;">                <option value="kills">Kills</option>
-                <option value="damage">Damage</option>
+                <option value="damage">Placement</option>
               </select>
               <select id="rangeSelect" class="input" style="width:auto; padding:6px 10px; font-size:12px;">
                 <option value="7">7 Days</option>
@@ -91,19 +92,38 @@
     const userName = user?.full_name || user?.email?.split("@")[0] || "Player";
     initShell("dashboard.html", `Welcome back, ${userName}`, "Here's your performance overview");
 
+    // Same map image lookup as matches.html — keep these two in sync.
+    const MAP_IMAGES = {
+      erangel: "assets/erangel.jpeg",
+      miramar: "assets/miramar.jpeg",
+      rondo: "assets/rondo.jpeg",
+    };
+    function mapAvatarHtml(mapName) {
+      const key = (mapName || "").toLowerCase();
+      const letter = (mapName || "?")[0];
+      const img = MAP_IMAGES[key];
+      if (img) {
+        return `<div class="map-avatar" style="padding:0; overflow:hidden;">
+          <img src="${img}" alt="${mapName}" style="width:100%;height:100%;object-fit:cover;"
+               onerror="this.closest('.map-avatar').style.padding='';this.closest('.map-avatar').textContent='${letter}';" />
+        </div>`;
+      }
+      return `<div class="map-avatar">${letter}</div>`;
+    }
+
     // ---- Recent matches: try real backend data first, fall back to demo ----
     const DEMO_MATCHES = [
       { map: "Erangel", date: "May 18, 2026 · 10:45 PM", rank: "#1", kills: 12, points: 2450 },
       { map: "Miramar", date: "May 18, 2026 · 09:30 PM", rank: "#3", kills: 8, points: 1840 },
-      { map: "Sanhok", date: "May 17, 2026 · 11:15 PM", rank: "#2", kills: 15, points: 2670 },
-      { map: "Vikendi", date: "May 17, 2026 · 08:20 PM", rank: "#7", kills: 4, points: 1120 },
+      { map: "Rondo", date: "May 17, 2026 · 11:15 PM", rank: "#2", kills: 15, points: 2670 },
+      { map: "Erangel", date: "May 17, 2026 · 08:20 PM", rank: "#7", kills: 4, points: 1120 },
     ];
 
     function renderRecentMatches(matches) {
       document.getElementById("recentMatches").innerHTML = matches.map(
         (m) => `
         <div style="display:flex; align-items:center; gap:12px; font-size:14px;">
-          <div class="map-avatar">${(m.map || "?")[0]}</div>
+          ${mapAvatarHtml(m.map)}
           <div style="flex:1;">
             <p style="margin:0; font-weight:500;">${m.map || "Unknown"}</p>
             <p style="margin:0; font-size:12px; color:var(--muted);">${m.date}</p>
@@ -113,6 +133,28 @@
             <p style="margin:0; font-size:12px; color:var(--muted);">${m.kills} Kills</p>
           </div>
           <p style="width:60px; text-align:right; font-weight:600; margin:0;">${m.points}</p>
+        </div>`
+      ).join("");
+    }
+
+    // ---- Stats Analyzer: shows the most recently saved/analyzed match, real data only ----
+    function renderStatsAnalyzer(latestMatch) {
+      const wrap = document.getElementById("statRows");
+      if (!latestMatch) {
+        wrap.innerHTML = `<p class="text-muted" style="font-size:13px; margin:0;">No matches analyzed yet — upload a screenshot to see your latest stats here.</p>`;
+        return;
+      }
+      const rows = [
+        { label: "Latest Kills", value: latestMatch.kills ?? "-" },
+        { label: "Map", value: latestMatch.map || "-" },
+        { label: "Placement", value: latestMatch.placement ? `#${latestMatch.placement}` : "-" },
+        { label: "MVP", value: latestMatch.mvp || "-" },
+      ];
+      wrap.innerHTML = rows.map(
+        (s) => `
+        <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:12px 16px;">
+          <span class="text-muted" style="font-size:14px;">${s.label}</span>
+          <span class="text-primary-light" style="font-size:16px; font-weight:600;">${s.value}</span>
         </div>`
       ).join("");
     }
@@ -131,27 +173,16 @@
             points: m.points ?? 0,
           }));
           renderRecentMatches(mapped);
+          renderStatsAnalyzer(data.matches[0]); // already newest-first from matches.php's ORDER BY created_at DESC
         } else {
           renderRecentMatches(DEMO_MATCHES);
+          renderStatsAnalyzer(null);
         }
       } catch {
         renderRecentMatches(DEMO_MATCHES);
+        renderStatsAnalyzer(null);
       }
     })();
-
-    // ---- Stats Analyzer simple rows (demo — swap for latest saved match once PHP backend exists) ----
-    const STAT_ROWS = [
-      { label: "Latest Kills", value: "12" },
-      { label: "Map", value: "Erangel" },
-      { label: "Accuracy", value: "98%" },
-    ];
-    document.getElementById("statRows").innerHTML = STAT_ROWS.map(
-      (s) => `
-      <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid var(--surface-border); background:var(--surface); border-radius:8px; padding:12px 16px;">
-        <span class="text-muted" style="font-size:14px;">${s.label}</span>
-        <span class="text-primary-light" style="font-size:16px; font-weight:600;">${s.value}</span>
-      </div>`
-    ).join("");
 
     // ---- Chart.js interactive performance chart ----
     function generateSeries(metric, days) {
