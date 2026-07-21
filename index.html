@@ -8,76 +8,171 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <main style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-    <div style="width:100%; max-width:380px;">
-      <div style="text-align:center; margin-bottom:24px;">
-        <a href="dashboard.html"><img src="assets/logo.png" alt="FRAGK" style="height:32px;" /></a>
-      </div>
+  <div class="auth-shell">
+    <div class="auth-wrap">
 
-      <div class="card" style="padding:32px;">
-        <h1 style="margin:0; font-size:24px; font-weight:700;">Welcome Back</h1>
-        <p class="text-muted" style="margin:4px 0 0; font-size:14px;">Login to continue tracking your game stats</p>
-
-        <form id="loginForm" style="margin-top:24px; display:flex; flex-direction:column; gap:16px;">
-          <div>
-            <label class="field-label" for="email">Email Address</label>
-            <input class="input" type="email" id="email" required placeholder="Enter your email" />
-          </div>
-          <div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-              <label class="field-label" for="password" style="margin:0;">Password</label>
-              <a href="#" class="text-primary-light" style="font-size:12px;">Forgot?</a>
-            </div>
-            <input class="input" type="password" id="password" required placeholder="Enter your password" />
-          </div>
-
-          <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);">
-            <input type="checkbox" id="remember" checked /> Remember Me
-          </label>
-
-          <p id="errorMsg" class="text-danger" style="font-size:12px; display:none;"></p>
-
-          <button type="submit" class="btn btn-primary" id="loginBtn">LOGIN</button>
-        </form>
-
-        <div style="display:flex; align-items:center; gap:12px; margin:16px 0;">
-          <div style="flex:1; height:1px; background:var(--surface-border);"></div>
-          <span class="text-muted" style="font-size:12px;">OR</span>
-          <div style="flex:1; height:1px; background:var(--surface-border);"></div>
+      <!-- Left: branding + illustration -->
+      <div class="auth-side">
+        <div class="sidebar-logo">
+          <img src="assets/logo.png" alt="FRAGK" style="height:26px;" />
         </div>
 
-        <button class="btn btn-outline" style="width:100%;" onclick="alert('Wire this up to Supabase Google OAuth or your PHP session bridge.')">
+        <p class="auth-tagline">Track. Analyze. Improve.</p>
+        <p class="auth-subtext">FRAGK helps you track your game stats and become a better player.</p>
+
+        <div class="auth-illustration">
+          <svg viewBox="0 0 260 220" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="glow" cx="50%" cy="55%" r="60%">
+                <stop offset="0%" stop-color="#2563EB" stop-opacity="0.45"/>
+                <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+              </radialGradient>
+              <linearGradient id="screenGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1E293B"/>
+                <stop offset="100%" stop-color="#0F172A"/>
+              </linearGradient>
+              <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#22d3ee"/>
+                <stop offset="100%" stop-color="#3B82F6"/>
+              </linearGradient>
+            </defs>
+
+            <ellipse cx="130" cy="175" rx="90" ry="14" fill="url(#glow)"/>
+
+            <!-- laptop/monitor -->
+            <rect x="55" y="40" width="150" height="98" rx="8" fill="url(#screenGrad)" stroke="#2563EB" stroke-width="1.5" opacity="0.9"/>
+            <rect x="66" y="50" width="128" height="78" rx="4" fill="#020817"/>
+            <polyline points="74,108 92,86 108,96 126,68 144,84 162,72 186,58"
+              fill="none" stroke="url(#lineGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="186" cy="58" r="3.5" fill="#22d3ee"/>
+            <rect x="120" y="138" width="20" height="10" fill="#1E293B"/>
+            <rect x="95" y="148" width="70" height="6" rx="3" fill="#1E293B"/>
+
+            <!-- controller -->
+            <g transform="translate(78,150)">
+              <path d="M6 20 C6 6 20 0 34 0 H70 C84 0 98 6 98 20 C98 32 90 44 78 44 C70 44 66 34 52 34 C38 34 34 44 26 44 C14 44 6 32 6 20 Z"
+                fill="#0F172A" stroke="#3B82F6" stroke-width="1.5"/>
+              <circle cx="26" cy="18" r="6" fill="none" stroke="#94A3B8" stroke-width="1.4"/>
+              <line x1="26" y1="12" x2="26" y2="24" stroke="#94A3B8" stroke-width="1.4"/>
+              <line x1="20" y1="18" x2="32" y2="18" stroke="#94A3B8" stroke-width="1.4"/>
+              <circle cx="72" cy="14" r="3.4" fill="#22d3ee"/>
+              <circle cx="82" cy="20" r="3.4" fill="#3B82F6"/>
+              <circle cx="72" cy="26" r="3.4" fill="#94A3B8" opacity="0.5"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="auth-features">
+          <div class="auth-feature">
+            <span class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 5-6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <div><strong>Real-time Stats</strong><span>Track every match in real-time</span></div>
+          </div>
+          <div class="auth-feature">
+            <span class="icon-wrap">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor"/></svg>
+            </span>
+            <div><strong>Advanced Analytics</strong><span>Deep insights to improve performance</span></div>
+          </div>
+          <div class="auth-feature">
+            <span class="icon-wrap">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor"/><circle cx="12" cy="12" r="4.5" stroke="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+            </span>
+            <div><strong>Play Smarter</strong><span>Make data-driven decisions</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: login form -->
+      <div class="auth-form-side">
+        <div class="sidebar-logo" style="display:none;">
+          <img src="assets/logo.png" alt="FRAGK" style="height:24px;" />
+        </div>
+
+        <h2>Welcome Back</h2>
+        <p class="auth-desc">Login to continue tracking your game stats</p>
+
+        <div id="loginError" class="form-error"></div>
+
+        <form id="loginForm">
+          <div class="auth-field">
+            <div class="auth-field-row"><label for="email">Email Address</label></div>
+            <div class="input-wrap">
+              <svg class="leading-icon" viewBox="0 0 24 24"><path d="M3 6h18v12H3z" stroke="currentColor" stroke-linejoin="round"/><path d="M3 6l9 7 9-7" stroke="currentColor" stroke-linejoin="round"/></svg>
+              <input class="input" type="email" id="email" placeholder="Enter your email" required />
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <div class="auth-field-row">
+              <label for="password">Password</label>
+              <a href="#">Forgot?</a>
+            </div>
+            <div class="input-wrap">
+              <svg class="leading-icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor"/><path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor"/></svg>
+              <input class="input" type="password" id="password" placeholder="Enter your password" required />
+              <button type="button" class="toggle-visibility" data-target="password">
+                <svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" stroke="currentColor"/><circle cx="12" cy="12" r="3" stroke="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <label class="auth-checkbox-row">
+            <input type="checkbox" id="remember" checked />
+            <span>Remember Me</span>
+          </label>
+
+          <button type="submit" class="btn btn-primary" style="width:100%;">LOGIN</button>
+        </form>
+
+        <div class="auth-divider">OR</div>
+
+        <button type="button" class="btn-google">
+          <svg viewBox="0 0 18 18"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.8H9v3.5h4.8c-.2 1.1-.9 2.1-1.8 2.7v2.3h2.9c1.7-1.6 2.7-3.9 2.7-6.7z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.3c-.8.5-1.9.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3C2.5 15.9 5.5 18 9 18z"/><path fill="#FBBC05" d="M3.9 10.6c-.2-.5-.3-1.1-.3-1.6s.1-1.1.3-1.6V5.1H.9C.3 6.3 0 7.6 0 9s.3 2.7.9 3.9l3-2.3z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3l2.5-2.5C13.5.9 11.4 0 9 0 5.5 0 2.5 2.1.9 5.1l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>
           Continue with Google
         </button>
 
-        <p class="text-muted" style="text-align:center; font-size:14px; margin-top:24px;">
-          Don't have an account? <a href="register.html" class="text-primary-light">Sign up</a>
-        </p>
+        <p class="auth-footer-text">Don't have an account? <a href="register.html">Sign up</a></p>
       </div>
+
     </div>
-  </main>
-<script src="js/config.js"></script>
-<script src="js/auth.js"></script>
+  </div>
+  <p class="auth-copyright">© 2026 FRAGK. All rights reserved.</p>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
   <script>
+    // eye-toggle for password field
+    document.querySelectorAll(".toggle-visibility").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        input.type = input.type === "password" ? "text" : "password";
+      });
+    });
+
     document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const btn = document.getElementById("loginBtn");
-      const errorMsg = document.getElementById("errorMsg");
-      errorMsg.style.display = "none";
-      btn.textContent = "Logging in…";
-      btn.disabled = true;
+      const errorBox = document.getElementById("loginError");
+      errorBox.classList.remove("show");
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
 
       try {
-        await AUTH.signIn(
-          document.getElementById("email").value,
-          document.getElementById("password").value
-        );
+        const res = await fetch(`${API_URL}/api/login.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Login failed. Check your email and password.");
+
+        localStorage.setItem("fragk_session", JSON.stringify({ token: data.token, user: data.user }));
         window.location.href = "dashboard.html";
       } catch (err) {
-        errorMsg.textContent = err.message;
-        errorMsg.style.display = "block";
-        btn.textContent = "LOGIN";
-        btn.disabled = false;
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
       }
     });
   </script>
