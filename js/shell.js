@@ -157,30 +157,36 @@ async function handleLogout() {
 }
 
 // ---------------- Add Player modal (global — available on every page) ----------------
+function playerRowHtml(n) {
+  return `
+    <div style="display:grid; grid-template-columns:1fr 120px; gap:8px; margin-bottom:14px;">
+      <div>
+        <label class="field-label" for="newPlayerName${n}">Player ${n} Name</label>
+        <input class="input" id="newPlayerName${n}" type="text" placeholder="${n === 1 ? "Enter name" : "Optional"}" />
+      </div>
+      <div>
+        <label class="field-label" for="newPlayerRole${n}">Role</label>
+        <select class="input" id="newPlayerRole${n}">
+          <option>IGL</option>
+          <option>Fragger</option>
+          <option>Support</option>
+          <option>Entry Fragger</option>
+        </select>
+      </div>
+    </div>`;
+}
+
 function renderAddPlayerModal() {
   return `
   <div class="modal-backdrop" id="addPlayerBackdrop">
-    <div class="card modal-box">
+    <div class="card modal-box" style="max-width:420px;">
       <button type="button" class="modal-close" onclick="closeAddPlayerModal()">&times;</button>
-      <h3>Add Player</h3>
-      <p class="modal-desc">Add a player to your team roster.</p>
+      <h3>Add Players</h3>
+      <p class="modal-desc">Add up to 4 players to your team roster at once. Leave any name blank to skip it.</p>
       <div id="addPlayerError" class="form-error"></div>
       <form id="addPlayerForm">
-        <div class="auth-field">
-          <label class="field-label" for="newPlayerName">Player Name</label>
-          <input class="input" id="newPlayerName" type="text" placeholder="Enter player name" required />
-        </div>
-        <div class="auth-field">
-          <label class="field-label" for="newPlayerRole">Role</label>
-          <select class="input" id="newPlayerRole">
-            <option>IGL</option>
-            <option>Fragger</option>
-            <option>Support</option>
-            <option>Sniper</option>
-            <option>Entry Fragger</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;">Add Player</button>
+        ${[1, 2, 3, 4].map(playerRowHtml).join("")}
+        <button type="submit" class="btn btn-primary" style="width:100%;">Add Players</button>
       </form>
     </div>
   </div>`;
@@ -201,24 +207,42 @@ async function handleAddPlayerSubmit(e) {
   const errorBox = document.getElementById("addPlayerError");
   errorBox.classList.remove("show");
 
-  const name = document.getElementById("newPlayerName").value.trim();
-  const role = document.getElementById("newPlayerRole").value;
+  const entries = [1, 2, 3, 4]
+    .map((n) => ({
+      name: document.getElementById(`newPlayerName${n}`).value.trim(),
+      role: document.getElementById(`newPlayerRole${n}`).value,
+    }))
+    .filter((p) => p.name);
 
-  try {
-    const session = AUTH.getSession();
-    const res = await fetch(`${API_URL}/api/team-players.php`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
-      body: JSON.stringify({ name, role }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not add player.");
+  if (entries.length === 0) {
+    errorBox.textContent = "Enter at least one player name.";
+    errorBox.classList.add("show");
+    return;
+  }
 
+  const session = AUTH.getSession();
+  const failures = [];
+
+  for (const entry of entries) {
+    try {
+      const res = await fetch(`${API_URL}/api/team-players.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        body: JSON.stringify(entry),
+      });
+      const data = await res.json();
+      if (!res.ok) failures.push(`${entry.name}: ${data.error || "could not be added"}`);
+    } catch (err) {
+      failures.push(`${entry.name}: ${err.message}`);
+    }
+  }
+
+  if (failures.length) {
+    errorBox.textContent = failures.join(" · ");
+    errorBox.classList.add("show");
+  } else {
     closeAddPlayerModal();
     document.getElementById("addPlayerForm").reset();
-  } catch (err) {
-    errorBox.textContent = err.message;
-    errorBox.classList.add("show");
   }
 }
 
