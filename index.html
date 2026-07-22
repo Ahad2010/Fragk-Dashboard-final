@@ -7,22 +7,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css" />
   <!-- Clerk Dashboard → API Keys → Quick Copy → select "JavaScript" → paste BOTH tags here exactly -->
- <script
+<script
   defer
   crossorigin="anonymous"
-  src="https://next-ibex-65.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js"
+  src="https://suitable-lynx-9.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js"
   type="text/javascript">
 </script>
-
-
 
 <script
   defer
   crossorigin="anonymous"
-  data-clerk-publishable-key="pk_test_bmV4dC1pYmV4LTY1LmNsZXJrLmFjY291bnRzLmRldiQ"
-  src="https://next-ibex-65.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+  data-clerk-publishable-key="pk_test_c3VpdGFibGUtbHlueC05LmNsZXJrLmFjY291bnRzLmRldiQ"
+  src="https://suitable-lynx-9.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
   type="text/javascript">
 </script>
+
 </head>
 <body>
   <div class="auth-shell">
@@ -127,7 +126,7 @@
           <div class="auth-field">
             <div class="auth-field-row">
               <label for="password">Password</label>
-              <a href="#">Forgot?</a>
+              <a href="forgot-password.html">Forgot?</a>
             </div>
             <div class="input-wrap">
               <svg class="leading-icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor"/><path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor"/></svg>
@@ -213,11 +212,11 @@
       }
       document.querySelector(".btn-google").addEventListener("click", async () => {
         try {
-        await Clerk.client.signIn.authenticateWithRedirect({
-  strategy: "oauth_google",
-  redirectUrl: "/fragk-dashboard-html/oauth-callback.html",
-  redirectUrlComplete: "/fragk-dashboard-html/oauth-callback.html",
-});
+          await Clerk.client.signIn.authenticateWithRedirect({
+            strategy: "oauth_google",
+            redirectUrl: "oauth-callback.html",
+            redirectUrlComplete: "oauth-callback.html",
+          });
         } catch (err) {
           console.error("Google sign-in failed", err);
         }

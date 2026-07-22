@@ -270,6 +270,12 @@
           </div>
         </div>
 
+        ${team.my_role === "owner" ? `
+        <div class="card" style="padding:20px;" id="membersCard">
+          <p class="section-title">Team Members</p>
+          <div id="membersWrap" style="color:var(--muted); font-size:14px;">Loading…</div>
+        </div>` : ``}
+
         <div class="card" style="padding:20px;">
           <p class="section-title">Recent Matches</p>
           ${matches.length === 0
@@ -283,7 +289,40 @@
               </div>`).join("")}
         </div>`;
 
-      if (team.my_role === "owner") loadJoinCode();
+      if (team.my_role === "owner") {
+        loadJoinCode();
+        loadMembers();
+      }
+    }
+
+    async function loadMembers() {
+      const wrap = document.getElementById("membersWrap");
+      try {
+        const res = await fetch(`${API_URL}/api/team-members.php`, { headers: authHeader() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load members");
+        const members = data.members || [];
+
+        wrap.innerHTML = members.map((m) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(28,39,64,0.6); font-size:14px;">
+            <div>
+              <span style="font-weight:500;">${m.full_name}</span>
+              <span class="text-muted"> · ${m.email}</span>
+              ${Number(m.is_owner) === 1 ? `<span class="text-primary-light" style="font-size:11px; margin-left:6px;">(Owner)</span>` : ""}
+            </div>
+            ${Number(m.is_owner) !== 1 ? `<button onclick="removeMember(${m.id})" class="text-danger" style="background:none; border:none; cursor:pointer; font-size:12px;">Remove</button>` : ""}
+          </div>
+        `).join("");
+      } catch (err) {
+        wrap.innerHTML = `<p style="color:var(--danger); margin:0;">${err.message}</p>`;
+      }
+    }
+
+    async function removeMember(userId) {
+      if (!confirm("Remove this player from the team? They'll lose access to shared team data.")) return;
+      await fetch(`${API_URL}/api/team-members.php?userId=${userId}`, { method: "DELETE", headers: authHeader() });
+      loadMembers();
+      loadTeam();
     }
 
     let editingPlayerId = null;

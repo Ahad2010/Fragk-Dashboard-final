@@ -161,38 +161,69 @@
       });
     });
 
-    // ---- Toggle rows (Preferences / Notifications / Privacy) ----
-    // These are UI-only for now (not yet saved to the backend) — every toggle
-    // is genuinely clickable and switches on/off, which is all that's wired up so far.
-    function toggleRow(id, label, desc, checked) {
+    // ---- Toggle rows (Preferences / Notifications / Privacy) — now persisted to the backend ----
+    let currentSettings = {};
+
+    function toggleRow(field, label, desc) {
+      const checked = Number(currentSettings[field]) === 1;
       return `
-        <label for="${id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(28,39,64,0.6); cursor:pointer;">
+        <label style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(28,39,64,0.6); cursor:pointer;">
           <div style="padding-right:16px;">
             <p style="margin:0; font-size:14px;">${label}</p>
             <p style="margin:2px 0 0; font-size:12px; color:var(--muted);">${desc}</p>
           </div>
-          <input id="${id}" type="checkbox" ${checked ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer; flex-shrink:0;" />
+          <input type="checkbox" ${checked ? "checked" : ""} onchange="saveSetting('${field}', this.checked)" style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer; flex-shrink:0;" />
         </label>`;
     }
 
-    document.getElementById("preferencesToggles").innerHTML = [
-      toggleRow("prefCompactSidebar", "Compact Sidebar", "Show a narrower sidebar with icons only.", false),
-      toggleRow("prefTooltips", "Show Tooltips", "Display helpful hints when hovering over stats.", true),
-      toggleRow("prefAutosave", "Auto-save Reports", "Automatically save analyzed screenshots without a manual click.", false),
-    ].join("");
+    function renderToggles() {
+      document.getElementById("preferencesToggles").innerHTML = [
+        toggleRow("compact_sidebar", "Compact Sidebar", "Show a narrower sidebar with icons only."),
+        toggleRow("show_tooltips", "Show Tooltips", "Display helpful hints when hovering over stats."),
+        toggleRow("autosave_reports", "Auto-save Reports", "Automatically save analyzed screenshots without a manual click."),
+      ].join("");
 
-    document.getElementById("notificationsToggles").innerHTML = [
-      toggleRow("notifEmail", "Email Notifications", "Get emailed when a report is approved or rejected.", true),
-      toggleRow("notifPush", "Push Notifications", "Browser notifications for new activity.", false),
-      toggleRow("notifWeekly", "Weekly Summary", "A weekly email recap of your stats.", true),
-      toggleRow("notifTeam", "Teammate Alerts", "Notify me when a teammate joins or leaves.", true),
-    ].join("");
+      document.getElementById("notificationsToggles").innerHTML = [
+        toggleRow("notif_email", "Email Notifications", "Get emailed when a report is approved or rejected."),
+        toggleRow("notif_push", "Push Notifications", "Browser notifications for new activity."),
+        toggleRow("notif_weekly", "Weekly Summary", "A weekly email recap of your stats."),
+        toggleRow("notif_team", "Teammate Alerts", "Notify me when a teammate joins or leaves."),
+      ].join("");
 
-    document.getElementById("privacyToggles").innerHTML = [
-      toggleRow("privacyProfile", "Show Profile to Teammates", "Let teammates see your profile and stats.", true),
-      toggleRow("privacyLeaderboard", "Show on Leaderboard", "Include my stats on public leaderboards.", true),
-      toggleRow("privacyInvites", "Allow Team Invites", "Let other players invite you to their team.", false),
-    ].join("");
+      document.getElementById("privacyToggles").innerHTML = [
+        toggleRow("privacy_profile", "Show Profile to Teammates", "Let teammates see your profile and stats."),
+        toggleRow("privacy_leaderboard", "Show on Leaderboard", "Include my stats on public leaderboards."),
+        toggleRow("privacy_invites", "Allow Team Invites", "Let other players invite you to their team."),
+      ].join("");
+    }
+
+    async function loadSettings() {
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/user-settings.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (res.ok) currentSettings = data.settings || {};
+      } catch (err) {
+        console.error("Failed to load settings", err);
+      }
+      renderToggles();
+    }
+
+    async function saveSetting(field, value) {
+      currentSettings[field] = value ? 1 : 0;
+      try {
+        const session = AUTH.getSession();
+        await fetch(`${API_URL}/api/user-settings.php`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({ [field]: value }),
+        });
+      } catch (err) {
+        console.error("Failed to save setting", err);
+      }
+    }
+
+    loadSettings();
   </script>
 </body>
 </html>
