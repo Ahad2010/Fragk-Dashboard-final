@@ -20,6 +20,30 @@
     </div>
   </div>
 
+  <!-- Edit roster entry -->
+  <div class="modal-backdrop" id="editPlayerBackdrop">
+    <div class="card modal-box">
+      <button type="button" class="modal-close" onclick="closeEditPlayer()">&times;</button>
+      <h3>Edit Roster Entry</h3>
+      <div id="editPlayerError" class="form-error"></div>
+      <div class="auth-field">
+        <label class="field-label" for="editPlayerName">Name</label>
+        <input class="input" id="editPlayerName" type="text" />
+      </div>
+      <div class="auth-field">
+        <label class="field-label" for="editPlayerRole">Role</label>
+        <select class="input" id="editPlayerRole">
+          <option>IGL</option>
+          <option>Fragger</option>
+          <option>Support</option>
+          <option>Sniper</option>
+          <option>Entry Fragger</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="savePlayerEdit()">Save</button>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/shell.js"></script>
@@ -27,40 +51,57 @@
     AUTH.requireAuth();
     initShell("team.html", "Team", "Manage your team, roles and performance.");
 
+    const currentUserId = AUTH.getUser()?.id;
+
     function authHeader() {
       const session = AUTH.getSession();
       return { Authorization: `Bearer ${session.token}` };
     }
 
     async function loadTeam() {
-      const res = await fetch(`${API_URL}/api/team.php`, { headers: authHeader() });
+      // my-team-status.php resolves BOTH ownership and joined-membership,
+      // so a player who joined via a code (not the owner) still lands on
+      // the team dashboard instead of the "create a team" screen.
+      const res = await fetch(`${API_URL}/api/my-team-status.php`, { headers: authHeader() });
       const data = await res.json();
       if (!res.ok) {
         document.getElementById("pageBody").innerHTML = `<p style="color:var(--danger);">${data.error || "Failed to load team"}</p>`;
         return;
       }
       if (!data.team) {
-        renderCreateTeamForm();
+        renderCreateOrJoinForm();
       } else {
         renderTeamDashboard(data.team);
       }
     }
 
-    function renderCreateTeamForm() {
+    function renderCreateOrJoinForm() {
       document.getElementById("pageBody").innerHTML = `
-        <div class="card" style="padding:24px; max-width:480px;">
-          <p class="section-title">Create Your Team</p>
-          <p class="text-muted" style="font-size:13px; margin-top:-8px;">You don't have a team yet — create one to start building your roster.</p>
-          <div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
-            <div><label class="field-label">Team Name</label><input id="teamName" class="input" placeholder="e.g. Exodus Esports" /></div>
-            <div><label class="field-label">Region</label><input id="teamRegion" class="input" placeholder="e.g. South Asia" /></div>
-            <div><label class="field-label">Game Mode</label>
-              <select id="teamMode" class="input">
-                <option>TPP Squad</option><option>FPP Squad</option><option>TPP Duo</option><option>Solo</option>
-              </select>
+        <div class="grid-2">
+          <div class="card" style="padding:24px;">
+            <p class="section-title">Create Your Team</p>
+            <p class="text-muted" style="font-size:13px; margin-top:-8px;">Start a new team and invite others with a join code.</p>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
+              <div><label class="field-label">Team Name</label><input id="teamName" class="input" placeholder="e.g. Exodus Esports" /></div>
+              <div><label class="field-label">Region</label><input id="teamRegion" class="input" placeholder="e.g. South Asia" /></div>
+              <div><label class="field-label">Game Mode</label>
+                <select id="teamMode" class="input">
+                  <option>TPP Squad</option><option>FPP Squad</option><option>TPP Duo</option><option>Solo</option>
+                </select>
+              </div>
+              <p id="createMsg" class="text-danger" style="font-size:12px; display:none;"></p>
+              <button class="btn btn-primary" onclick="createTeam()">Create Team</button>
             </div>
-            <p id="createMsg" class="text-danger" style="font-size:12px; display:none;"></p>
-            <button class="btn btn-primary" onclick="createTeam()">Create Team</button>
+          </div>
+
+          <div class="card" style="padding:24px;">
+            <p class="section-title">Join a Team</p>
+            <p class="text-muted" style="font-size:13px; margin-top:-8px;">Have a join code from a teammate? Enter it here.</p>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
+              <div><label class="field-label">Join Code</label><input id="joinCodeInput" class="input" placeholder="e.g. A1B2C3" style="text-transform:uppercase;" /></div>
+              <p id="joinMsg" class="text-danger" style="font-size:12px; display:none;"></p>
+              <button class="btn btn-outline" onclick="joinTeam()">Join Team</button>
+            </div>
           </div>
         </div>`;
     }
@@ -93,6 +134,52 @@
       }
     }
 
+    async function joinTeam() {
+      const code = document.getElementById("joinCodeInput").value.trim();
+      const msg = document.getElementById("joinMsg");
+      if (!code) {
+        msg.textContent = "Enter a join code";
+        msg.style.display = "block";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/api/join-team.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader() },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to join team");
+        loadTeam();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.style.display = "block";
+      }
+    }
+
+    async function loadJoinCode() {
+      try {
+        const res = await fetch(`${API_URL}/api/team-join-code.php`, { headers: authHeader() });
+        const data = await res.json();
+        if (!res.ok) return;
+        const el = document.getElementById("joinCodeDisplay");
+        if (el) el.textContent = data.joinCode;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function copyJoinCode() {
+      const code = document.getElementById("joinCodeDisplay").textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById("copyCodeBtn");
+        const original = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => (btn.textContent = original), 1500);
+      });
+    }
+
     async function renderTeamDashboard(team) {
       const [playersRes, matchesRes] = await Promise.all([
         fetch(`${API_URL}/api/team-players.php`, { headers: authHeader() }),
@@ -121,6 +208,7 @@
               </div>
             </div>
             <p class="text-muted" style="margin-top:16px; font-size:12px;">Created: ${new Date(team.created_at).toLocaleDateString()}</p>
+            <p class="text-muted" style="margin-top:4px; font-size:12px;">You're the ${team.my_role === "owner" ? "owner" : "a member"} of this team.</p>
           </div>
 
           <div class="card" style="padding:20px;">
@@ -134,14 +222,33 @@
           </div>
 
           <div class="card" style="padding:20px;">
-            <p class="section-title">Team Roles</p>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-              ${Object.keys(roleCounts).length === 0
-                ? `<p class="text-muted" style="font-size:13px;">No players yet.</p>`
-                : Object.entries(roleCounts).map(([role, count]) => `<div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">${role}</span><span style="font-weight:500;">${count}</span></div>`).join("")}
-            </div>
+            ${team.my_role === "owner" ? `
+              <p class="section-title">Invite Teammates</p>
+              <p class="text-muted" style="font-size:12px; margin-top:-4px;">Share this code — anyone who enters it joins your team and shares its stats.</p>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+                <div id="joinCodeDisplay" style="flex:1; background:var(--surface); border:1px solid var(--surface-border); border-radius:8px; padding:10px 14px; font-weight:700; letter-spacing:2px; text-align:center;">…</div>
+                <button id="copyCodeBtn" class="btn btn-outline" style="font-size:12px; padding:10px 14px;" onclick="copyJoinCode()">Copy</button>
+              </div>
+            ` : `
+              <p class="section-title">Team Roles</p>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                ${Object.keys(roleCounts).length === 0
+                  ? `<p class="text-muted" style="font-size:13px;">No players yet.</p>`
+                  : Object.entries(roleCounts).map(([role, count]) => `<div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">${role}</span><span style="font-weight:500;">${count}</span></div>`).join("")}
+              </div>
+            `}
           </div>
         </div>
+
+        ${team.my_role === "owner" ? `
+        <div class="card" style="padding:20px;">
+          <p class="section-title">Team Roles</p>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            ${Object.keys(roleCounts).length === 0
+              ? `<p class="text-muted" style="font-size:13px;">No players yet.</p>`
+              : Object.entries(roleCounts).map(([role, count]) => `<div style="display:flex; justify-content:space-between; font-size:14px;"><span class="text-muted">${role}</span><span style="font-weight:500;">${count}</span></div>`).join("")}
+          </div>
+        </div>` : ``}
 
         <div class="card" style="padding:20px;">
           <div class="section-title">
@@ -151,7 +258,15 @@
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
             ${players.length === 0
               ? `<p class="text-muted" style="font-size:13px;">No players added yet.</p>`
-              : players.map((p) => `<span style="border:1px solid var(--surface-border); border-radius:99px; padding:6px 14px; font-size:13px;">${p.name} <span class="text-muted">· ${p.role}</span></span>`).join("")}
+              : players.map((p) => {
+                  const canEdit = team.my_role === "owner" || (p.user_id && Number(p.user_id) === currentUserId);
+                  return `<span style="display:inline-flex; align-items:center; gap:6px; border:1px solid var(--surface-border); border-radius:99px; padding:6px 10px 6px 14px; font-size:13px;">
+                    ${p.name} <span class="text-muted">· ${p.role}</span>
+                    ${canEdit ? `<button onclick="openEditPlayer(${p.id}, '${p.name.replace(/'/g, "\\'")}', '${p.role}')" style="background:none; border:none; color:var(--muted); cursor:pointer; padding:2px; display:flex;" title="Edit">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                    </button>` : ""}
+                  </span>`;
+                }).join("")}
           </div>
         </div>
 
@@ -167,6 +282,47 @@
                 <p style="margin:0; font-weight:600;">${m.points ?? 0} Points</p>
               </div>`).join("")}
         </div>`;
+
+      if (team.my_role === "owner") loadJoinCode();
+    }
+
+    let editingPlayerId = null;
+
+    function openEditPlayer(id, name, role) {
+      editingPlayerId = id;
+      document.getElementById("editPlayerError").classList.remove("show");
+      document.getElementById("editPlayerName").value = name;
+      document.getElementById("editPlayerRole").value = role;
+      document.getElementById("editPlayerBackdrop").classList.add("open");
+    }
+    function closeEditPlayer() {
+      document.getElementById("editPlayerBackdrop").classList.remove("open");
+    }
+    document.getElementById("editPlayerBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "editPlayerBackdrop") closeEditPlayer();
+    });
+
+    async function savePlayerEdit() {
+      const errorBox = document.getElementById("editPlayerError");
+      errorBox.classList.remove("show");
+      const name = document.getElementById("editPlayerName").value.trim();
+      const role = document.getElementById("editPlayerRole").value;
+
+      try {
+        const res = await fetch(`${API_URL}/api/team-players.php`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader() },
+          body: JSON.stringify({ id: editingPlayerId, name, role }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to save");
+
+        closeEditPlayer();
+        loadTeam();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+      }
     }
 
     loadTeam();
