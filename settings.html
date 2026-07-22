@@ -15,17 +15,17 @@
       <div class="topbar-mount"></div>
 
       <main class="page-body">
-        <div class="tabs">
-          <button class="tab-btn active">Account</button>
-          <button class="tab-btn">Preferences</button>
-          <button class="tab-btn">Notifications</button>
-          <button class="tab-btn">Privacy</button>
-          <button class="tab-btn">Security</button>
-          <button class="tab-btn">Subscription</button>
+        <div class="tabs" id="settingsTabs">
+          <button class="tab-btn active" data-tab="Account">Account</button>
+          <button class="tab-btn" data-tab="Preferences">Preferences</button>
+          <button class="tab-btn" data-tab="Notifications">Notifications</button>
+          <button class="tab-btn" data-tab="Privacy">Privacy</button>
+          <button class="tab-btn" data-tab="Security">Security</button>
         </div>
 
-        <div class="grid-2">
-          <div class="card" style="padding:20px;">
+        <!-- Account -->
+        <div id="accountSection">
+          <div class="card" style="padding:20px; max-width:500px;">
             <p class="section-title">Profile Information</p>
 
             <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
@@ -47,8 +47,35 @@
             <p id="msg" style="font-size:12px; display:none; margin-top:12px;"></p>
             <button id="saveBtn" class="btn btn-primary" style="width:100%; margin-top:12px;">Save Changes</button>
           </div>
+        </div>
 
-          <div class="card" style="padding:20px;">
+        <!-- Preferences -->
+        <div id="preferencesSection" style="display:none;">
+          <div class="card" style="padding:20px; max-width:500px;">
+            <p class="section-title">Preferences</p>
+            <div id="preferencesToggles"></div>
+          </div>
+        </div>
+
+        <!-- Notifications -->
+        <div id="notificationsSection" style="display:none;">
+          <div class="card" style="padding:20px; max-width:500px;">
+            <p class="section-title">Notifications</p>
+            <div id="notificationsToggles"></div>
+          </div>
+        </div>
+
+        <!-- Privacy -->
+        <div id="privacySection" style="display:none;">
+          <div class="card" style="padding:20px; max-width:500px;">
+            <p class="section-title">Privacy</p>
+            <div id="privacyToggles"></div>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div id="securitySection" style="display:none;">
+          <div class="card" style="padding:20px; max-width:500px;">
             <p class="section-title">Account Security</p>
             <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
               <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(28,39,64,0.6); padding-bottom:10px;"><span class="text-muted">Two-Factor Authentication</span><span class="text-warning">Not set up</span></div>
@@ -114,6 +141,58 @@
         msg.style.display = "block";
       }
     });
+
+    // ---- Tabs: switch which section is visible ----
+    const SECTION_IDS = {
+      Account: "accountSection",
+      Preferences: "preferencesSection",
+      Notifications: "notificationsSection",
+      Privacy: "privacySection",
+      Security: "securitySection",
+    };
+    document.querySelectorAll("#settingsTabs .tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#settingsTabs .tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const activeTab = btn.dataset.tab;
+        Object.entries(SECTION_IDS).forEach(([tab, id]) => {
+          document.getElementById(id).style.display = tab === activeTab ? "block" : "none";
+        });
+      });
+    });
+
+    // ---- Toggle rows (Preferences / Notifications / Privacy) ----
+    // These are UI-only for now (not yet saved to the backend) — every toggle
+    // is genuinely clickable and switches on/off, which is all that's wired up so far.
+    function toggleRow(id, label, desc, checked) {
+      return `
+        <label for="${id}" style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(28,39,64,0.6); cursor:pointer;">
+          <div style="padding-right:16px;">
+            <p style="margin:0; font-size:14px;">${label}</p>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--muted);">${desc}</p>
+          </div>
+          <input id="${id}" type="checkbox" ${checked ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer; flex-shrink:0;" />
+        </label>`;
+    }
+
+    document.getElementById("preferencesToggles").innerHTML = [
+      toggleRow("prefCompactSidebar", "Compact Sidebar", "Show a narrower sidebar with icons only.", false),
+      toggleRow("prefTooltips", "Show Tooltips", "Display helpful hints when hovering over stats.", true),
+      toggleRow("prefAutosave", "Auto-save Reports", "Automatically save analyzed screenshots without a manual click.", false),
+    ].join("");
+
+    document.getElementById("notificationsToggles").innerHTML = [
+      toggleRow("notifEmail", "Email Notifications", "Get emailed when a report is approved or rejected.", true),
+      toggleRow("notifPush", "Push Notifications", "Browser notifications for new activity.", false),
+      toggleRow("notifWeekly", "Weekly Summary", "A weekly email recap of your stats.", true),
+      toggleRow("notifTeam", "Teammate Alerts", "Notify me when a teammate joins or leaves.", true),
+    ].join("");
+
+    document.getElementById("privacyToggles").innerHTML = [
+      toggleRow("privacyProfile", "Show Profile to Teammates", "Let teammates see your profile and stats.", true),
+      toggleRow("privacyLeaderboard", "Show on Leaderboard", "Include my stats on public leaderboards.", true),
+      toggleRow("privacyInvites", "Allow Team Invites", "Let other players invite you to their team.", false),
+    ].join("");
   </script>
 </body>
 </html>

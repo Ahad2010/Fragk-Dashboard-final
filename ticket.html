@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support Ticket — FRAGK</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <a href="notifications.html" class="text-primary-light" style="font-size:12px;">← Back to Notifications</a>
+
+        <div class="card" style="display:flex; flex-direction:column; height:70vh; padding:0;">
+          <div style="padding:16px 20px; border-bottom:1px solid var(--surface-border);">
+            <p id="ticketSubject" style="margin:0; font-weight:600; font-size:15px;">Loading…</p>
+            <p id="ticketStatus" class="text-muted" style="margin:2px 0 0; font-size:12px;"></p>
+          </div>
+
+          <div id="messagesArea" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px;"></div>
+
+          <div id="attachmentPreviewWrap" style="display:none; padding:0 20px 10px;">
+            <div style="position:relative; display:inline-block;">
+              <img id="attachmentPreviewImg" style="max-height:70px; border-radius:8px; border:1px solid var(--surface-border);" />
+              <button onclick="clearAttachment()" style="position:absolute; top:-8px; right:-8px; width:20px; height:20px; border-radius:50%; background:var(--danger); color:#fff; border:none; cursor:pointer; font-size:12px; line-height:1;">×</button>
+            </div>
+          </div>
+
+          <div id="replyError" class="form-error" style="margin:0 20px 8px;"></div>
+
+          <div style="padding:16px 20px; border-top:1px solid var(--surface-border); display:flex; gap:8px; align-items:center; position:relative;">
+            <button type="button" class="icon-btn" onclick="toggleEmojiPicker()" title="Emoji" style="font-size:18px;">🙂</button>
+            <label class="icon-btn" style="cursor:pointer; font-size:16px;" title="Attach image">
+              📎
+              <input type="file" id="attachmentInput" accept="image/*" style="display:none;" />
+            </label>
+
+            <div id="emojiPicker" class="card" style="display:none; position:absolute; bottom:56px; left:16px; padding:10px; width:240px; z-index:20; flex-wrap:wrap; gap:4px;">
+              <!-- filled by JS -->
+            </div>
+
+            <input id="messageInput" class="input" placeholder="Type a message…" style="flex:1;" onkeydown="if(event.key==='Enter') sendMessage();" />
+            <button class="btn btn-primary" style="padding:10px 18px;" onclick="sendMessage()">Send</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- WhatsApp-style delete choice -->
+  <div class="modal-backdrop" id="deleteChoiceBackdrop">
+    <div class="card modal-box" style="max-width:320px;">
+      <button type="button" class="modal-close" onclick="closeDeleteChoice()">&times;</button>
+      <h3>Delete Message</h3>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
+        <button id="deleteForEveryoneBtn" class="btn btn-outline text-danger" style="width:100%; border-color:rgba(248,113,113,0.5);" onclick="confirmDelete('everyone')">Delete for Everyone</button>
+        <button class="btn btn-outline" style="width:100%;" onclick="confirmDelete('me')">Delete for Me</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("notifications.html", "Support Ticket", "");
+
+    const ticketId = new URLSearchParams(window.location.search).get("id");
+    if (!ticketId) window.location.href = "notifications.html";
+
+    const currentUser = AUTH.getUser();
+    let pendingAttachment = null;
+
+    const EMOJI_LIST = ["😀","😂","😍","👍","👎","🙏","🔥","🎉","😢","😡","❤️","💯","👏","🤔","😴","🎮","🏆","💀"];
+    document.getElementById("emojiPicker").innerHTML = EMOJI_LIST.map(
+      (e) => `<button type="button" onclick="insertEmoji('${e}')" style="background:none; border:none; font-size:18px; cursor:pointer; padding:4px;">${e}</button>`
+    ).join("");
+
+    function toggleEmojiPicker() {
+      const el = document.getElementById("emojiPicker");
+      el.style.display = el.style.display === "none" ? "flex" : "none";
+    }
+    function insertEmoji(emoji) {
+      const input = document.getElementById("messageInput");
+      input.value += emoji;
+      input.focus();
+    }
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#emojiPicker") && !e.target.closest('[onclick="toggleEmojiPicker()"]')) {
+        document.getElementById("emojiPicker").style.display = "none";
+      }
+    });
+
+    document.getElementById("attachmentInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        pendingAttachment = reader.result;
+        document.getElementById("attachmentPreviewImg").src = reader.result;
+        document.getElementById("attachmentPreviewWrap").style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    });
+    function clearAttachment() {
+      pendingAttachment = null;
+      document.getElementById("attachmentInput").value = "";
+      document.getElementById("attachmentPreviewWrap").style.display = "none";
+    }
+
+    function statusLabel(status) {
+      const map = { open: "Waiting for reply", answered: "Answered", closed: "Closed" };
+      return map[status] || "Waiting for reply";
+    }
+
+    async function loadThread() {
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/support-tickets.php?ticketId=${ticketId}`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load ticket");
+
+        document.getElementById("ticketSubject").textContent = data.ticket.subject;
+        document.getElementById("ticketStatus").textContent = statusLabel(data.ticket.status);
+        renderMessages(data.ticket.messages);
+      } catch (err) {
+        document.getElementById("ticketSubject").textContent = "Error";
+        document.getElementById("messagesArea").innerHTML = `<p class="text-danger" style="font-size:13px;">${err.message}</p>`;
+      }
+    }
+
+    function renderMessages(messages) {
+      const area = document.getElementById("messagesArea");
+      if (messages.length === 0) {
+        area.innerHTML = `<p class="text-muted" style="font-size:13px;">No messages yet.</p>`;
+        return;
+      }
+      area.innerHTML = messages.map((m) => {
+        const isMine = m.sender_type === "user";
+        return `
+        <div style="align-self:${isMine ? "flex-end" : "flex-start"}; max-width:75%;">
+          <div style="background:${isMine ? "rgba(37,99,235,0.15)" : "var(--surface)"}; border:1px solid var(--surface-border); border-radius:8px; padding:10px 12px; position:relative;">
+            <p style="margin:0; font-size:11px; color:var(--muted); font-weight:600;">${isMine ? "You" : "FRAGK Support"}</p>
+            ${m.message ? `<p style="margin:4px 0 0; font-size:13px; white-space:pre-wrap;">${m.message}</p>` : ""}
+            ${m.attachment_path ? `<img src="${API_URL}/${m.attachment_path}" style="max-width:100%; border-radius:6px; margin-top:6px; cursor:pointer;" onclick="window.open('${API_URL}/${m.attachment_path}','_blank')" />` : ""}
+            <button onclick="openDeleteChoice(${m.id}, ${isMine})" style="position:absolute; top:6px; right:6px; background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px;" title="Delete">🗑</button>
+          </div>
+          <p class="text-muted" style="margin:2px 4px 0; font-size:10px; text-align:${isMine ? "right" : "left"};">${new Date(m.created_at).toLocaleString()}</p>
+        </div>`;
+      }).join("");
+      area.scrollTop = area.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const message = input.value.trim();
+      const errorBox = document.getElementById("replyError");
+      errorBox.classList.remove("show");
+
+      if (!message && !pendingAttachment) return;
+
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/support-messages.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({ ticketId: Number(ticketId), message, attachmentBase64: pendingAttachment }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to send");
+
+        input.value = "";
+        clearAttachment();
+        loadThread();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+      }
+    }
+
+    let deleteTargetId = null;
+
+    function openDeleteChoice(id, isMine) {
+      deleteTargetId = id;
+      document.getElementById("deleteForEveryoneBtn").style.display = isMine ? "block" : "none";
+      document.getElementById("deleteChoiceBackdrop").classList.add("open");
+    }
+    function closeDeleteChoice() {
+      document.getElementById("deleteChoiceBackdrop").classList.remove("open");
+    }
+    document.getElementById("deleteChoiceBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "deleteChoiceBackdrop") closeDeleteChoice();
+    });
+
+    async function confirmDelete(mode) {
+      const session = AUTH.getSession();
+      await fetch(`${API_URL}/api/support-messages.php?id=${deleteTargetId}&mode=${mode}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      closeDeleteChoice();
+      loadThread();
+    }
+
+    loadThread();
+  </script>
+</body>
+</html>

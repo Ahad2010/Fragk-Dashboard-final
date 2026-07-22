@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications — FRAGK</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar-mount"></div>
+
+      <main class="page-body">
+        <div class="tabs" id="pageTabs">
+          <button class="tab-btn active" data-tab="Notifications">Notifications</button>
+          <button class="tab-btn" data-tab="Support">Support</button>
+        </div>
+
+        <!-- Notifications -->
+        <div id="notificationsSection">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="clearAllNotifications()">Clear All</button>
+          </div>
+          <div class="card" id="notifListWrap" style="padding:0;">
+            <p style="padding:24px; color:var(--muted); font-size:14px; margin:0;">Loading…</p>
+          </div>
+        </div>
+
+        <!-- Support -->
+        <div id="supportSection" style="display:none;">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+            <button class="btn btn-primary" style="font-size:12px; padding:8px 16px;" onclick="openNewTicketModal()">+ New Query</button>
+          </div>
+          <div class="card" id="ticketListWrap" style="padding:0;">
+            <p style="padding:24px; color:var(--muted); font-size:14px; margin:0;">Loading…</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- New ticket popup -->
+  <div class="modal-backdrop" id="newTicketBackdrop">
+    <div class="card modal-box">
+      <button type="button" class="modal-close" onclick="closeNewTicketModal()">&times;</button>
+      <h3>New Support Query</h3>
+      <p class="modal-desc">Send a question to the FRAGK team — you'll get a notification when they reply.</p>
+      <div id="newTicketError" class="form-error"></div>
+      <form id="newTicketForm">
+        <div class="auth-field">
+          <label class="field-label" for="ticketSubject">Subject</label>
+          <input class="input" id="ticketSubject" type="text" placeholder="e.g. My report was rejected by mistake" required />
+        </div>
+        <div class="auth-field">
+          <label class="field-label" for="ticketMessage">Message</label>
+          <textarea id="ticketMessage" class="input" rows="4" style="resize:vertical; font-family:inherit;" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    AUTH.requireAuth();
+    initShell("notifications.html", "Notifications", "Your notifications and support queries.");
+
+    // ---- Tabs ----
+    document.querySelectorAll("#pageTabs .tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#pageTabs .tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        document.getElementById("notificationsSection").style.display = tab === "Notifications" ? "block" : "none";
+        document.getElementById("supportSection").style.display = tab === "Support" ? "block" : "none";
+        if (tab === "Support") loadTickets();
+      });
+    });
+
+    // ---- Notifications ----
+    async function loadNotificationsList() {
+      const wrap = document.getElementById("notifListWrap");
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/notifications.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load notifications");
+        renderNotificationsList(data.notifications || []);
+      } catch (err) {
+        wrap.innerHTML = `<p style="padding:24px; color:var(--danger); font-size:14px; margin:0;">${err.message}</p>`;
+      }
+    }
+
+    function renderNotificationsList(notifications) {
+      const wrap = document.getElementById("notifListWrap");
+      if (notifications.length === 0) {
+        wrap.innerHTML = `<p style="padding:24px; color:var(--muted); font-size:14px; margin:0;">No notifications.</p>`;
+        return;
+      }
+      wrap.innerHTML = notifications.map((n) => `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:16px 20px; border-bottom:1px solid rgba(28,39,64,0.6);">
+          <div>
+            <p style="margin:0; font-size:14px;">${n.message}</p>
+            <p class="text-muted" style="margin:4px 0 0; font-size:11px;">${new Date(n.created_at).toLocaleString()}</p>
+          </div>
+          <button class="icon-btn" style="flex-shrink:0;" onclick="clearNotification(${n.id})" title="Clear">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      `).join("");
+    }
+
+    async function clearNotification(id) {
+      const session = AUTH.getSession();
+      await fetch(`${API_URL}/api/notifications.php?id=${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${session.token}` } });
+      loadNotificationsList();
+    }
+
+    async function clearAllNotifications() {
+      if (!confirm("Clear all notifications?")) return;
+      const session = AUTH.getSession();
+      await fetch(`${API_URL}/api/notifications.php?id=all`, { method: "DELETE", headers: { Authorization: `Bearer ${session.token}` } });
+      loadNotificationsList();
+    }
+
+    // ---- Support tickets ----
+    async function loadTickets() {
+      const wrap = document.getElementById("ticketListWrap");
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/support-tickets.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load tickets");
+        renderTickets(data.tickets || []);
+      } catch (err) {
+        wrap.innerHTML = `<p style="padding:24px; color:var(--danger); font-size:14px; margin:0;">${err.message}</p>`;
+      }
+    }
+
+    function statusBadge(status) {
+      const map = {
+        open: { color: "var(--warning)", label: "Waiting for reply" },
+        answered: { color: "var(--success)", label: "Answered" },
+        closed: { color: "var(--muted)", label: "Closed" },
+      };
+      const s = map[status] || map.open;
+      return `<span style="color:${s.color}; font-weight:600; font-size:11px;">${s.label}</span>`;
+    }
+
+    function renderTickets(tickets) {
+      const wrap = document.getElementById("ticketListWrap");
+      if (tickets.length === 0) {
+        wrap.innerHTML = `<p style="padding:24px; color:var(--muted); font-size:14px; margin:0;">No queries yet — send one with "+ New Query".</p>`;
+        return;
+      }
+      wrap.innerHTML = tickets.map((t) => `
+        <div style="padding:16px 20px; border-bottom:1px solid rgba(28,39,64,0.6); cursor:pointer;" onclick="openThread(${t.id})">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <p style="margin:0; font-weight:500; font-size:14px;">${t.subject}</p>
+            ${statusBadge(t.status)}
+          </div>
+          <p class="text-muted" style="margin:6px 0 0; font-size:12px;">${t.last_message || ""}</p>
+          <p class="text-muted" style="margin:4px 0 0; font-size:11px;">${new Date(t.updated_at).toLocaleString()}</p>
+        </div>
+      `).join("");
+    }
+
+    function openNewTicketModal() {
+      document.getElementById("newTicketError").classList.remove("show");
+      document.getElementById("newTicketForm").reset();
+      document.getElementById("newTicketBackdrop").classList.add("open");
+    }
+    function closeNewTicketModal() {
+      document.getElementById("newTicketBackdrop").classList.remove("open");
+    }
+    document.getElementById("newTicketBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "newTicketBackdrop") closeNewTicketModal();
+    });
+
+    document.getElementById("newTicketForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById("newTicketError");
+      errorBox.classList.remove("show");
+
+      const subject = document.getElementById("ticketSubject").value.trim();
+      const message = document.getElementById("ticketMessage").value.trim();
+
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/support-tickets.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({ subject, message }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to send");
+
+        closeNewTicketModal();
+        loadTickets();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+      }
+    });
+
+    // ---- Ticket thread: full page now (ticket.html), not a modal ----
+    function openThread(ticketId) {
+      window.location.href = `ticket.html?id=${ticketId}`;
+    }
+
+    loadNotificationsList();
+    markNotificationsRead();
+  </script>
+</body>
+</html>

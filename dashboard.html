@@ -19,23 +19,19 @@
         <div class="stat-grid">
           <div class="card stat-card">
             <p class="label">Matches Played</p>
-            <p class="value">32</p>
-            <p class="delta">↑ 12% vs last 7 days</p>
+            <p class="value" id="statMatches">-</p>
           </div>
           <div class="card stat-card">
             <p class="label">Total Kills</p>
-            <p class="value">148</p>
-            <p class="delta">↑ 18% vs last 7 days</p>
+            <p class="value" id="statKills">-</p>
           </div>
           <div class="card stat-card">
             <p class="label">Win Rate</p>
-            <p class="value">28.6%</p>
-            <p class="delta">↑ 7% vs last 7 days</p>
+            <p class="value" id="statWinRate">-</p>
           </div>
           <div class="card stat-card">
             <p class="label">K/D Ratio</p>
-            <p class="value">4.63</p>
-            <p class="delta">↑ 15% vs last 7 days</p>
+            <p class="value" id="statKD">-</p>
           </div>
         </div>
 
@@ -44,7 +40,7 @@
             <span>Performance Overview</span>
             <div style="display:flex; gap:8px;">
 <select id="metricSelect" class="input" style="width:auto; padding:6px 10px; font-size:12px;">                <option value="kills">Kills</option>
-                <option value="damage">Placement</option>
+                <option value="points">Points</option>
               </select>
               <select id="rangeSelect" class="input" style="width:auto; padding:6px 10px; font-size:12px;">
                 <option value="7">7 Days</option>
@@ -111,15 +107,13 @@
       return `<div class="map-avatar">${letter}</div>`;
     }
 
-    // ---- Recent matches: try real backend data first, fall back to demo ----
-    const DEMO_MATCHES = [
-      { map: "Erangel", date: "May 18, 2026 · 10:45 PM", rank: "#1", kills: 12, points: 2450 },
-      { map: "Miramar", date: "May 18, 2026 · 09:30 PM", rank: "#3", kills: 8, points: 1840 },
-      { map: "Rondo", date: "May 17, 2026 · 11:15 PM", rank: "#2", kills: 15, points: 2670 },
-      { map: "Erangel", date: "May 17, 2026 · 08:20 PM", rank: "#7", kills: 4, points: 1120 },
-    ];
+    // ---- Recent matches: real data only, no demo fallback ----
 
     function renderRecentMatches(matches) {
+      if (matches.length === 0) {
+        document.getElementById("recentMatches").innerHTML = `<p class="text-muted" style="font-size:13px; margin:0;">No matches yet — upload a screenshot in Stats Analyzer to get started.</p>`;
+        return;
+      }
       document.getElementById("recentMatches").innerHTML = matches.map(
         (m) => `
         <div style="display:flex; align-items:center; gap:12px; font-size:14px;">
@@ -159,13 +153,17 @@
       ).join("");
     }
 
+    let allMatches = [];
+
     (async () => {
       try {
         const session = AUTH.getSession();
         const res = await fetch(`${API_URL}/api/matches.php`, { headers: { Authorization: `Bearer ${session.token}` } });
         const data = await res.json();
         if (res.ok && data.matches && data.matches.length > 0) {
-          const mapped = data.matches.slice(0, 4).map((m) => ({
+          const matches = data.matches;
+          allMatches = matches;
+          const mapped = matches.slice(0, 4).map((m) => ({
             map: m.map,
             date: new Date(m.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
             rank: m.placement ? `#${m.placement}` : "-",
@@ -173,32 +171,59 @@
             points: m.points ?? 0,
           }));
           renderRecentMatches(mapped);
-          renderStatsAnalyzer(data.matches[0]); // already newest-first from matches.php's ORDER BY created_at DESC
+          renderStatsAnalyzer(matches[0]); // already newest-first from matches.php's ORDER BY created_at DESC
+
+          const matchesPlayed = matches.length;
+          const totalKills = matches.reduce((sum, m) => sum + (Number(m.kills) || 0), 0);
+          const wins = matches.filter((m) => Number(m.placement) === 1).length;
+          const winRate = ((wins / matchesPlayed) * 100).toFixed(1);
+          const kd = (totalKills / Math.max(1, matchesPlayed - wins)).toFixed(2);
+
+          document.getElementById("statMatches").textContent = matchesPlayed;
+          document.getElementById("statKills").textContent = totalKills;
+          document.getElementById("statWinRate").textContent = `${winRate}%`;
+          document.getElementById("statKD").textContent = kd;
         } else {
-          renderRecentMatches(DEMO_MATCHES);
+          allMatches = [];
+          renderRecentMatches([]);
           renderStatsAnalyzer(null);
+          ["statMatches", "statKills", "statWinRate", "statKD"].forEach((id) => {
+            document.getElementById(id).textContent = "0";
+          });
         }
       } catch {
-        renderRecentMatches(DEMO_MATCHES);
+        allMatches = [];
+        renderRecentMatches([]);
         renderStatsAnalyzer(null);
+        ["statMatches", "statKills", "statWinRate", "statKD"].forEach((id) => {
+          document.getElementById(id).textContent = "-";
+        });
       }
+      updateChart();
     })();
 
-    // ---- Chart.js interactive performance chart ----
-    function generateSeries(metric, days) {
-      const base = metric === "kills" ? 16 : 1400;
-      const amplitude = metric === "kills" ? 12 : 900;
-      const referenceEnd = new Date(2026, 4, 18);
-      const labels = [];
-      const values = [];
-      for (let idx = 0; idx < days; idx++) {
-        const i = days - 1 - idx;
-        const d = new Date(referenceEnd);
-        d.setDate(d.getDate() - i);
-        const wave = Math.sin(i * 0.55) * amplitude * 0.5 + Math.cos(i * 0.28) * amplitude * 0.3;
-        labels.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-        values.push(Math.max(0, Math.round(base + wave)));
+    // ---- Chart.js interactive performance chart — built from real matches only ----
+    function buildSeriesFromMatches(matches, metric, days) {
+      let filtered = matches;
+      if (days !== "all") {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - Number(days));
+        filtered = matches.filter((m) => new Date(m.created_at) >= cutoff);
       }
+
+      // Group by calendar day and sum the chosen metric — only days with real
+      // activity appear, so a brand-new account just shows an empty chart
+      // instead of a fabricated history.
+      const byDay = {};
+      filtered.forEach((m) => {
+        const day = new Date(m.created_at).toISOString().slice(0, 10);
+        const value = metric === "points" ? Number(m.points) || 0 : Number(m.kills) || 0;
+        byDay[day] = (byDay[day] || 0) + value;
+      });
+
+      const sortedDays = Object.keys(byDay).sort();
+      const labels = sortedDays.map((d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+      const values = sortedDays.map((d) => byDay[d]);
       return { labels, values };
     }
 
@@ -247,15 +272,16 @@ let chart = new Chart(ctx, {
         },
         scales: {
           x: { grid: { color: "rgba(28,39,64,0.5)" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
-          y: { grid: { color: "rgba(28,39,64,0.5)" }, ticks: { color: "#8a92a8", font: { size: 11 } } },
+          y: { grid: { color: "rgba(28,39,64,0.5)" }, ticks: { color: "#8a92a8", font: { size: 11 }, precision: 0 } },
         },
       },
     });
 
     function updateChart() {
       const metric = document.getElementById("metricSelect").value;
-      const days = Number(document.getElementById("rangeSelect").value);
-      const { labels, values } = generateSeries(metric, days);
+      const rangeValue = document.getElementById("rangeSelect").value;
+      const days = rangeValue === "60" ? "all" : rangeValue; // "60" option = "All Time" in the dropdown
+      const { labels, values } = buildSeriesFromMatches(allMatches, metric, days);
       chart.data.labels = labels;
       chart.data.datasets[0].data = values;
       chart.update();

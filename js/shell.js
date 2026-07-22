@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: "Leaderboards", href: "leaderboards.html", icon: "trophy" },
   { label: "Analytics", href: "analytics.html", icon: "M4 20V10M12 20V4M20 20v-7" },
   { label: "Team", href: "team.html", icon: "shield" },
+  { label: "Notifications", href: "notifications.html", icon: "bell" },
   { label: "Settings", href: "settings.html", icon: "gear" },
 ];
 
@@ -24,6 +25,8 @@ function iconSvg(name) {
       return wrap('<path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M6 6H4a2 2 0 0 0 2 4M18 6h2a2 2 0 0 1-2 4"/><path d="M10 15h4v2h-4zM8 21h8l-1-4H9l-1 4Z"/>');
     case "shield":
       return wrap('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"/>');
+    case "bell":
+      return wrap('<path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 20a2 2 0 0 0 4 0"/>');
     case "gear":
       return wrap('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.2.6.7 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>');
     default:
@@ -42,11 +45,6 @@ function renderSidebar(activePage) {
   return `
     <div class="sidebar-logo"><img src="assets/logo.png" alt="FRAGK" /></div>
     <ul class="nav-list">${items}</ul>
-    <div class="card upgrade-card">
-      <p style="font-weight:600;">Go Premium</p>
-      <p class="text-muted" style="font-size:12px;">Unlock advanced stats, custom reports and much more.</p>
-      <button class="btn btn-primary">Upgrade Now</button>
-    </div>
   `;
 }
 
@@ -137,7 +135,27 @@ function toggleDropdown(id) {
   document.querySelectorAll(".dropdown.open").forEach((el) => {
     if (el.id !== id) el.classList.remove("open");
   });
+  const willOpen = !document.getElementById(id)?.classList.contains("open");
   document.getElementById(id)?.classList.toggle("open");
+
+  if (willOpen && (id === "notif-dd" || id === "notif-dd-desktop")) {
+    markNotificationsRead();
+  }
+}
+
+async function markNotificationsRead() {
+  try {
+    const session = AUTH.getSession();
+    await fetch(`${API_URL}/api/notifications.php`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    document.querySelectorAll(".badge-dot").forEach((el) => {
+      el.style.display = "none";
+    });
+  } catch (err) {
+    console.error("Failed to mark notifications read", err);
+  }
 }
 
 document.addEventListener("click", (e) => {
@@ -170,6 +188,7 @@ function playerRowHtml(n) {
           <option>IGL</option>
           <option>Fragger</option>
           <option>Support</option>
+          <option>Sniper</option>
           <option>Entry Fragger</option>
         </select>
       </div>
@@ -256,5 +275,43 @@ function initShell(activePage, title, subtitle) {
       if (e.target.id === "addPlayerBackdrop") closeAddPlayerModal();
     });
     document.getElementById("addPlayerForm").addEventListener("submit", handleAddPlayerSubmit);
+  }
+
+  loadNotifications();
+}
+
+async function loadNotifications() {
+  try {
+    const session = AUTH.getSession();
+    const res = await fetch(`${API_URL}/api/notifications.php`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    const data = await res.json();
+    if (res.ok) renderNotifications(data.notifications || []);
+  } catch (err) {
+    console.error("Failed to load notifications", err);
+  }
+}
+
+function renderNotifications(notifications) {
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const listHtml = notifications.length
+    ? notifications.slice(0, 8).map(
+        (n) => `<a href="#" style="white-space:normal; line-height:1.4;">${n.message}</a>`
+      ).join("")
+    : `<p style="padding:12px; font-size:12px; color:var(--muted); margin:0;">No notifications yet.</p>`;
+
+  document.querySelectorAll(".badge-dot").forEach((el) => {
+    el.textContent = unreadCount;
+    el.style.display = unreadCount > 0 ? "flex" : "none";
+  });
+
+  const notifDd = document.getElementById("notif-dd");
+  if (notifDd) notifDd.innerHTML = listHtml;
+
+  const notifDdDesktop = document.getElementById("notif-dd-desktop");
+  if (notifDdDesktop) {
+    notifDdDesktop.innerHTML = `<p style="padding:10px 12px;border-bottom:1px solid var(--surface-border);font-weight:600;font-size:13px;">Notifications</p>${listHtml}`;
   }
 }
