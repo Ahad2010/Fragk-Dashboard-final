@@ -119,6 +119,8 @@
       document.getElementById("fTotalPoints").textContent = getTotalPoints(placement, total);
       document.getElementById("fMvp").textContent = total > 0 ? names[kills.indexOf(Math.max(...kills))] : "-";
     }
+    // Only the name fields are user-editable and trigger a recalc as you type —
+    // kills/map/placement are read-only, locked to whatever the AI extracted.
     [fields.fP1Name, fields.fP2Name, fields.fP3Name, fields.fP4Name].forEach((el) => el.addEventListener("input", recalc));
 
     document.getElementById("screenshot").addEventListener("change", async (e) => {
@@ -145,6 +147,9 @@
           });
           const data = await res.json();
 
+          // analyze-screenshot.php returns 422 for unsupported maps — in that case
+          // we deliberately do NOT show the report form, so nothing can be saved
+          // from a rejected screenshot.
           if (!res.ok) throw new Error(data.error || "Failed to analyze screenshot");
 
           const ext = data.extracted;
@@ -164,6 +169,7 @@
         } catch (err) {
           document.getElementById("errorMsg").textContent = err.message;
           document.getElementById("errorMsg").style.display = "block";
+          // Report form stays hidden — a rejected/failed screenshot can't be saved.
         } finally {
           document.getElementById("loadingMsg").style.display = "none";
         }
@@ -172,6 +178,12 @@
     });
 
     document.getElementById("saveBtn").addEventListener("click", async () => {
+      const saveBtn = document.getElementById("saveBtn");
+      if (saveBtn.disabled) return; // guard against rapid double-clicks
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving…";
+
       const kills = [fields.fP1, fields.fP2, fields.fP3, fields.fP4].map((el) => Number(el.value) || 0);
       const names = [fields.fP1Name, fields.fP2Name, fields.fP3Name, fields.fP4Name].map((el) => el.value.trim() || null);
       const total = kills.reduce((a, b) => a + b, 0);
@@ -202,9 +214,17 @@
         if (!res.ok) throw new Error(data.error || "Failed to save report");
         savedMsg.style.display = "block";
         errorMsg.style.display = "none";
+        saveBtn.textContent = "Already Saved";
+        saveBtn.style.background = "var(--surface-2)";
+        saveBtn.style.color = "var(--muted)";
+        saveBtn.style.cursor = "not-allowed";
+        saveBtn.style.boxShadow = "none";
+        // Stays disabled — this exact report is saved; upload a new screenshot to save another.
       } catch (err) {
         errorMsg.textContent = `Failed to save: ${err.message}`;
         errorMsg.style.display = "block";
+        saveBtn.disabled = false; // let them retry on failure
+        saveBtn.textContent = "Save Report";
       }
     });
   </script>

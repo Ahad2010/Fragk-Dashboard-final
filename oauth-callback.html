@@ -21,8 +21,6 @@
   src="https://suitable-lynx-9.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
   type="text/javascript">
 </script>
-
-
 </head>
 <body>
   <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px;">
@@ -52,11 +50,11 @@
         if (!res.ok) throw new Error(data.error || "Google sign-in failed");
 
         localStorage.setItem("fragk_session", JSON.stringify({ token: data.token, user: data.user }));
-        window.location.href = "dashboard.html";
+        window.location.href = "/fragk-dashboard-html/dashboard.html";
       } catch (err) {
         console.error(err);
         statusText.textContent = "Google sign-in didn't work. Redirecting back to login…";
-        setTimeout(() => (window.location.href = "index.html"), 2200);
+        setTimeout(() => (window.location.href = "/fragk-dashboard-html/index.html"), 2200);
       }
     });
   </script>

@@ -232,10 +232,10 @@
       document.querySelector(".btn-google").addEventListener("click", async () => {
         try {
           await Clerk.client.signIn.authenticateWithRedirect({
-  strategy: "oauth_google",
-  redirectUrl: "/fragk-dashboard-html/oauth-callback.html",
-  redirectUrlComplete: "/fragk-dashboard-html/oauth-callback.html",
-});
+            strategy: "oauth_google",
+            redirectUrl: "/fragk-dashboard-html/oauth-callback.html",
+            redirectUrlComplete: "/fragk-dashboard-html/oauth-callback.html",
+          });
         } catch (err) {
           console.error("Google sign-in failed", err);
         }
@@ -244,14 +244,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
- 
- 

@@ -10,6 +10,43 @@
 <body>
   <div class="mobile-backdrop" onclick="toggleMobileSidebar()"></div>
 
+  <!-- Onboarding: Create/Join Team popup (forced, no team yet) -->
+  <div class="modal-backdrop" id="onboardTeamBackdrop">
+    <div class="card modal-box" style="max-width:420px;">
+      <h3>Welcome to FRAGK!</h3>
+      <p class="modal-desc">Add your first player to get started, or join an existing team with a code.</p>
+
+      <div class="tabs" style="margin-bottom:16px;">
+        <button type="button" class="tab-btn active" id="onboardCreateTab" onclick="setOnboardTab('create')">Add Player</button>
+        <button type="button" class="tab-btn" id="onboardJoinTab" onclick="setOnboardTab('join')">Join Team</button>
+      </div>
+
+      <div id="onboardCreateSection">
+        <div id="onboardCreateError" class="form-error"></div>
+        <div class="auth-field">
+          <label class="field-label">Player Name</label>
+          <input class="input" id="onboardPlayerName" placeholder="e.g. FRAGGERxYT" />
+        </div>
+        <div class="auth-field">
+          <label class="field-label">Role</label>
+          <select class="input" id="onboardPlayerRole">
+            <option>IGL</option><option selected>Fragger</option><option>Support</option><option>Sniper</option><option>Entry Fragger</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="onboardCreateTeam(this)">Add Player</button>
+      </div>
+
+      <div id="onboardJoinSection" style="display:none;">
+        <div id="onboardJoinError" class="form-error"></div>
+        <div class="auth-field">
+          <label class="field-label">Join Code</label>
+          <input class="input" id="onboardJoinCode" placeholder="e.g. A1B2C3" style="text-transform:uppercase;" />
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="onboardJoinTeam(this)">Join Team</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-shell">
     <aside class="sidebar"></aside>
     <div class="main-content">
@@ -19,19 +56,19 @@
         <div class="stat-grid">
           <div class="card stat-card">
             <p class="label">Matches Played</p>
-            <p class="value" id="statMatches">-</p>
+            <p class="value" id="statMatches"><span class="skeleton" style="width:50px; height:32px;"></span></p>
           </div>
           <div class="card stat-card">
             <p class="label">Total Kills</p>
-            <p class="value" id="statKills">-</p>
+            <p class="value" id="statKills"><span class="skeleton" style="width:50px; height:32px;"></span></p>
           </div>
           <div class="card stat-card">
             <p class="label">Win Rate</p>
-            <p class="value" id="statWinRate">-</p>
+            <p class="value" id="statWinRate"><span class="skeleton" style="width:70px; height:32px;"></span></p>
           </div>
           <div class="card stat-card">
             <p class="label">K/D Ratio</p>
-            <p class="value" id="statKD">-</p>
+            <p class="value" id="statKD"><span class="skeleton" style="width:50px; height:32px;"></span></p>
           </div>
         </div>
 
@@ -50,7 +87,8 @@
               </select>
             </div>
           </div>
-          <div class="chart-wrap" style="height:220px;">
+          <div class="chart-wrap" style="height:220px; position:relative;">
+            <span id="chartSkeleton" class="skeleton" style="position:absolute; inset:0; border-radius:12px;"></span>
             <canvas id="perfChart"></canvas>
           </div>
         </div>
@@ -61,7 +99,11 @@
               <span>Recent Matches</span>
               <a href="matches.html" class="text-primary-light" style="font-size:12px;">View All</a>
             </div>
-            <div id="recentMatches" style="display:flex; flex-direction:column; gap:12px;"></div>
+            <div id="recentMatches" style="display:flex; flex-direction:column; gap:12px;">
+              <span class="skeleton" style="width:100%; height:48px;"></span>
+              <span class="skeleton" style="width:100%; height:48px;"></span>
+              <span class="skeleton" style="width:100%; height:48px;"></span>
+            </div>
           </div>
 
           <div class="card" style="padding:20px;">
@@ -72,7 +114,11 @@
               </span>
               <a href="stats-analyzer.html" class="text-primary-light" style="font-size:12px;">Try Again</a>
             </div>
-            <div id="statRows" style="display:flex; flex-direction:column; gap:12px;"></div>
+            <div id="statRows" style="display:flex; flex-direction:column; gap:12px;">
+              <span class="skeleton" style="width:100%; height:44px;"></span>
+              <span class="skeleton" style="width:100%; height:44px;"></span>
+              <span class="skeleton" style="width:100%; height:44px;"></span>
+            </div>
           </div>
         </div>
       </main>
@@ -87,6 +133,122 @@
     const user = AUTH.getUser();
     const userName = user?.full_name || user?.email?.split("@")[0] || "Player";
     initShell("dashboard.html", `Welcome back, ${userName}`, "Here's your performance overview");
+
+    // ---- New-user onboarding: must have a team + at least one roster player ----
+    (async () => {
+      try {
+        const session = AUTH.getSession();
+
+        const teamRes = await fetch(`${API_URL}/api/my-team-status.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const teamData = await teamRes.json();
+
+        if (!teamData.team) {
+          document.getElementById("onboardTeamBackdrop").classList.add("open");
+          return;
+        }
+
+        const playersRes = await fetch(`${API_URL}/api/team-players.php`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const playersData = await playersRes.json();
+        const roster = playersData.players || [];
+
+        if (roster.length === 0) {
+          lockAddPlayerModal("Welcome! Add at least one player to your roster to get started.");
+        }
+      } catch (err) {
+        console.error("Onboarding check failed", err);
+      }
+    })();
+
+    function setOnboardTab(tab) {
+      document.getElementById("onboardCreateTab").classList.toggle("active", tab === "create");
+      document.getElementById("onboardJoinTab").classList.toggle("active", tab === "join");
+      document.getElementById("onboardCreateSection").style.display = tab === "create" ? "block" : "none";
+      document.getElementById("onboardJoinSection").style.display = tab === "join" ? "block" : "none";
+    }
+
+    async function onboardCreateTeam(btn) {
+      if (btn.disabled) return; // guard against rapid double-clicks
+
+      const playerName = document.getElementById("onboardPlayerName").value.trim();
+      const errorBox = document.getElementById("onboardCreateError");
+      errorBox.classList.remove("show");
+
+      if (!playerName) {
+        errorBox.textContent = "Player name is required";
+        errorBox.classList.add("show");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Adding…";
+
+      try {
+        const session = AUTH.getSession();
+        const currentUser = AUTH.getUser();
+        const autoTeamName = `${currentUser?.full_name || userName}'s Team`;
+
+        const res = await fetch(`${API_URL}/api/team.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({ name: autoTeamName }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to set up your team");
+
+        // Team's ready — now add the player.
+        const playerRes = await fetch(`${API_URL}/api/team-players.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({ name: playerName, role: document.getElementById("onboardPlayerRole").value }),
+        });
+        const playerData = await playerRes.json();
+        if (!playerRes.ok) throw new Error(playerData.error || "Team set up, but failed to add player");
+
+        document.getElementById("onboardTeamBackdrop").classList.remove("open");
+        window.location.reload();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+        btn.disabled = false;
+        btn.textContent = "Add Player";
+      }
+    }
+
+    async function onboardJoinTeam(btn) {
+      if (btn.disabled) return; // guard against rapid double-clicks
+
+      const code = document.getElementById("onboardJoinCode").value.trim();
+      const errorBox = document.getElementById("onboardJoinError");
+      errorBox.classList.remove("show");
+
+      if (!code) {
+        errorBox.textContent = "Enter a join code";
+        errorBox.classList.add("show");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Joining…";
+
+      try {
+        const session = AUTH.getSession();
+        const res = await fetch(`${API_URL}/api/join-team.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to join team");
+
+        // Joining auto-adds you to the roster too, so no Add Player step needed — just refresh.
+        window.location.reload();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+        btn.disabled = false;
+        btn.textContent = "Join Team";
+      }
+    }
 
     // Same map image lookup as matches.html — keep these two in sync.
     const MAP_IMAGES = {
@@ -285,6 +447,7 @@ let chart = new Chart(ctx, {
       chart.data.labels = labels;
       chart.data.datasets[0].data = values;
       chart.update();
+      document.getElementById("chartSkeleton")?.remove();
     }
     document.getElementById("metricSelect").addEventListener("change", updateChart);
     document.getElementById("rangeSelect").addEventListener("change", updateChart);

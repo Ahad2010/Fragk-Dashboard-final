@@ -34,10 +34,25 @@ function iconSvg(name) {
   }
 }
 
+// ---------------- Page transition (loading bar) ----------------
+(function ensureLoadBar() {
+  if (!document.getElementById("pageLoadBar")) {
+    const bar = document.createElement("div");
+    bar.id = "pageLoadBar";
+    document.body.prepend(bar);
+  }
+})();
+
+function navigateTo(href) {
+  const bar = document.getElementById("pageLoadBar");
+  if (bar) bar.classList.add("active");
+  setTimeout(() => { window.location.href = href; }, 120);
+}
+
 function renderSidebar(activePage) {
   const items = NAV_ITEMS.map(
     (item) => `
-    <li class="nav-item ${item.href === activePage ? "active" : ""}" onclick="location.href='${item.href}'">
+    <li class="nav-item ${item.href === activePage ? "active" : ""}" onclick="navigateTo('${item.href}')">
       ${iconSvg(item.icon)} ${item.label}
     </li>`
   ).join("");
@@ -91,7 +106,7 @@ function renderTopbar(title, subtitle) {
         ${subtitle ? `<p>${subtitle}</p>` : ""}
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-primary" onclick="location.href='stats-analyzer.html'">
+        <button class="btn btn-primary" onclick="navigateTo('stats-analyzer.html')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v13"/></svg>
           Upload Screenshot
         </button>
@@ -211,6 +226,8 @@ function renderAddPlayerModal() {
   </div>`;
 }
 
+let addPlayerModalLocked = false;
+
 function openAddPlayerModal() {
   document.getElementById("addPlayerError")?.classList.remove("show");
   document.getElementById("addPlayerForm")?.reset();
@@ -218,11 +235,44 @@ function openAddPlayerModal() {
 }
 
 function closeAddPlayerModal() {
+  if (addPlayerModalLocked) return; // can't be dismissed during forced onboarding
   document.getElementById("addPlayerBackdrop")?.classList.remove("open");
+}
+
+// Forces the Add Player modal open and un-closeable — used for new-user
+// onboarding, where the client wants at least one player added before
+// the dashboard is usable.
+function lockAddPlayerModal(message) {
+  addPlayerModalLocked = true;
+  openAddPlayerModal();
+
+  const closeBtn = document.querySelector("#addPlayerBackdrop .modal-close");
+  if (closeBtn) closeBtn.style.display = "none";
+
+  let notice = document.getElementById("onboardingNotice");
+  if (!notice) {
+    notice = document.createElement("p");
+    notice.id = "onboardingNotice";
+    notice.className = "text-warning";
+    notice.style.cssText = "font-size:12px; margin:-8px 0 16px;";
+    document.querySelector("#addPlayerBackdrop .modal-box h3")?.insertAdjacentElement("afterend", notice);
+  }
+  notice.textContent = message;
+}
+
+function unlockAddPlayerModal() {
+  addPlayerModalLocked = false;
+  const closeBtn = document.querySelector("#addPlayerBackdrop .modal-close");
+  if (closeBtn) closeBtn.style.display = "";
+  document.getElementById("onboardingNotice")?.remove();
+  closeAddPlayerModal();
 }
 
 async function handleAddPlayerSubmit(e) {
   e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn.disabled) return; // guard against rapid double-clicks
+
   const errorBox = document.getElementById("addPlayerError");
   errorBox.classList.remove("show");
 
@@ -238,6 +288,9 @@ async function handleAddPlayerSubmit(e) {
     errorBox.classList.add("show");
     return;
   }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Adding…";
 
   const session = AUTH.getSession();
   const failures = [];
@@ -256,12 +309,20 @@ async function handleAddPlayerSubmit(e) {
     }
   }
 
+  submitBtn.disabled = false;
+  submitBtn.textContent = "Add Players";
+
   if (failures.length) {
     errorBox.textContent = failures.join(" · ");
     errorBox.classList.add("show");
   } else {
-    closeAddPlayerModal();
     document.getElementById("addPlayerForm").reset();
+    if (addPlayerModalLocked) {
+      unlockAddPlayerModal();
+      window.location.reload(); // refresh so onboarding check passes and dashboard shows real data
+    } else {
+      closeAddPlayerModal();
+    }
   }
 }
 

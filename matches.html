@@ -71,7 +71,7 @@
             <span>Total Points: <b id="cTotalPoints" style="color:var(--primary-light);">0</b></span>
             <span>MVP: <b id="cMvp" style="color:var(--warning);">-</b></span>
           </div>
-          <button type="submit" class="btn btn-primary" style="align-self:flex-start; padding:10px 24px;">Add Match</button>
+          <button type="submit" id="addMatchBtn" class="btn btn-primary" style="align-self:flex-start; padding:10px 24px;">Add Match</button>
           <p id="customMsg" class="text-primary-light" style="font-size:12px; display:none;"></p>
         </form>
 
@@ -194,6 +194,12 @@
 
     document.getElementById("customForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const addMatchBtn = document.getElementById("addMatchBtn");
+      if (addMatchBtn.disabled) return; // guard against rapid double-clicks
+
+      addMatchBtn.disabled = true;
+      addMatchBtn.textContent = "Adding…";
+
       const kills = [cP1, cP2, cP3, cP4].map((el) => Number(el.value) || 0);
       const names = [cP1Name, cP2Name, cP3Name, cP4Name].map((el) => el.value.trim() || null);
       const total = kills.reduce((a, b) => a + b, 0);
@@ -230,6 +236,9 @@
         msg.textContent = err.message;
         msg.className = "text-danger";
         msg.style.display = "block";
+      } finally {
+        addMatchBtn.disabled = false;
+        addMatchBtn.textContent = "Add Match";
       }
     });
     const cMode = document.getElementById("cMode");

@@ -21,7 +21,6 @@
   src="https://suitable-lynx-9.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
   type="text/javascript">
 </script>
-
 </head>
 <body>
   <div class="auth-shell">
@@ -214,8 +213,8 @@
         try {
           await Clerk.client.signIn.authenticateWithRedirect({
             strategy: "oauth_google",
-            redirectUrl: "oauth-callback.html",
-            redirectUrlComplete: "oauth-callback.html",
+            redirectUrl: "/fragk-dashboard-html/oauth-callback.html",
+            redirectUrlComplete: "/fragk-dashboard-html/oauth-callback.html",
           });
         } catch (err) {
           console.error("Google sign-in failed", err);

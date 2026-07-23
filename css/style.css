@@ -549,3 +549,39 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   .auth-form-side { padding: 40px 22px; justify-content: flex-start; }
   .auth-form-side .sidebar-logo { display: block; text-align: center; margin-bottom: 28px; }
 }
+
+/* ================= Page transition (loading bar + fade-in) ================= */
+#pageLoadBar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, #2563EB, #3B82F6, #22d3ee);
+  box-shadow: 0 0 8px rgba(37,99,235,0.6);
+  z-index: 9999;
+  transition: width 0.3s ease-out, opacity 0.2s ease-out;
+  opacity: 0;
+  pointer-events: none;
+}
+#pageLoadBar.active { width: 70%; opacity: 1; }
+
+.app-shell { animation: pageFadeIn 0.35s ease-out; }
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ================= Skeleton loading (shimmer placeholders) ================= */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+  color: transparent !important;
+  pointer-events: none;
+  display: inline-block;
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
